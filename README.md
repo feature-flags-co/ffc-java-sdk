@@ -1,2 +1,2 @@
-# -ffc-java-client-sdk
+# ffc-java-client-sdk
 ffc java sdk
