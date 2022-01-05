@@ -4,11 +4,21 @@
 
 使用maven安装指令
   ```
-  <dependency>
-    <groupId>co.featureflags</groupId>
-    <artifactId>ffc-java-sdk</artifactId>
-    <version>0.1</version>
-  </dependency>  
+<repositories>
+        <repository>
+            <id>github-ffc-java-sdk-repo</id>
+            <name>The Maven Repository on Github</name>
+            <url>https://feature-flags-co.github.io/ffc-java-sdk/maven-repo</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>co.featureflags</groupId>
+            <artifactId>ffc-java-sdk</artifactId>
+            <version>0.1</version>
+        </dependency>
+    </dependencies> 
   ```
 
 ## 集成SDK到自己的项目中
