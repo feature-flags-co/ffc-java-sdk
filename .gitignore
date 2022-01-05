@@ -12,7 +12,7 @@
 .mtj.tmp/
 
 # Package Files #
-*.jar
+target/
 *.war
 *.nar
 *.ear
@@ -71,6 +71,12 @@ hs_err_pid*
 .idea/modules.xml
 .idea/*.iml
 .idea/modules
+.idea/codeStyles/
+.idea/.gitignore
+.idea/encodings.xml
+.idea/misc.xml
+.idea/sbt.xml
+.idea/vcs.xml
 *.iml
 *.ipr
 
@@ -106,4 +112,3 @@ fabric.properties
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
-
