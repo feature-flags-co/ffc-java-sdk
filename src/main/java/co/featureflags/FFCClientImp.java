@@ -9,9 +9,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class FFCClientImp implements FFCClient {
 
-    private final FFCUser anonymous = new FFCUser.Builder("anonymous")
-            .userName("anonymous")
-            .build();
+    private FFCUser defaultUser;
 
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
@@ -19,23 +17,36 @@ public class FFCClientImp implements FFCClient {
 
     private FFCConfig config;
 
-    public FFCClientImp(String envSecret, FFCConfig config) {
+    public FFCClientImp(String envSecret, FFCUser user, FFCConfig config) {
         this.envSecret = checkNotNull(envSecret, "envSecret must not be null");
+        this.defaultUser = user;
         this.config = checkNotNull(config, "config must not be null");
     }
 
+    public FFCClientImp(String envSecret, FFCUser user) {
+        this(envSecret, user, FFCConfig.DEFAULT);
+    }
+
     public FFCClientImp(String envSecret) {
-        this(envSecret, FFCConfig.DEFAULT);
+        this(envSecret, null, FFCConfig.DEFAULT);
     }
 
     @Override
-    public void initialize(String envSecret, FFCConfig config) {
+    public void reinitialize(String envSecret, FFCUser user, FFCConfig config) {
         if (envSecret != null) {
             this.envSecret = envSecret;
         }
         if (config != null) {
             this.config = config;
         }
+        if (user != null) {
+            this.defaultUser = user;
+        }
+    }
+
+    @Override
+    public String variation(String featureFlagKey, String defaultValue) {
+        return variation(featureFlagKey, null, defaultValue);
     }
 
     @Override
@@ -44,7 +55,7 @@ public class FFCClientImp implements FFCClient {
             return defaultValue;
         }
         if (user == null) {
-            user = anonymous;
+            user = checkNotNull(this.defaultUser, "user must not be null");
         }
         IntermediateObject.VariationPayload payload = new IntermediateObject.VariationPayload(featureFlagKey, this.envSecret, user);
         String json = gson.toJson(payload);
@@ -58,6 +69,4 @@ public class FFCClientImp implements FFCClient {
             return defaultValue;
         }
     }
-
-
 }
