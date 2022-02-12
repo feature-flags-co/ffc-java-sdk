@@ -68,7 +68,7 @@ public abstract class DataModel {
             this.data = new InternalData(timestamp);
         }
 
-        private class InternalData {
+        private static class InternalData {
             Long timestamp;
 
             private InternalData(Long timestamp) {
@@ -117,6 +117,10 @@ public abstract class DataModel {
                     ? featureFlags.stream().map(flag -> flag.timestamp).max(Long::compare).orElse(0L) : 0L;
         }
 
+        public List<FeatureFlag> getFeatureFlags() {
+            return featureFlags;
+        }
+
         public String getEventType() {
             return eventType;
         }
@@ -148,11 +152,11 @@ public abstract class DataModel {
         private final Boolean isArchived;
         private final Long timestamp;
         private final Boolean exptIncludeAllRules;
-        @SerializedName("FF")
+        @SerializedName("ff")
         private final FeatureFlagBasicInfo info;
-        @SerializedName("FFP")
+        @SerializedName("ffp")
         private final List<FeatureFlagPrerequisite> prerequisites;
-        @SerializedName("FFTUWMTR")
+        @SerializedName("fftuwmtr")
         private final List<FeatureFlagTargetUsersWhoMatchTheseRuleParam> rules;
         @SerializedName("targetIndividuals")
         private final List<TargetIndividualForVariationOption> targets;

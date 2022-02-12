@@ -9,15 +9,23 @@ import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.lang.reflect.Type;
+import java.net.URL;
 
 abstract class JsonHelper {
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
+    private static final Gson gson = new GsonBuilder()
+            .setPrettyPrinting()
+            .serializeNulls()
+            .disableHtmlEscaping()
+            .create();
 
     private JsonHelper() {
         super();
     }
+
 
     static <T> T deserialize(String json, Class<T> objectClass) throws JsonParseException {
         try {
@@ -35,11 +43,27 @@ abstract class JsonHelper {
         }
     }
 
+    static <T> T deserialize(URL url, Class<T> objectClass) throws JsonParseException {
+        try {
+            return gson.fromJson(new InputStreamReader(url.openStream()), objectClass);
+        } catch (Exception e) {
+            throw new JsonParseException(e);
+        }
+    }
+
+    static <T> T deserialize(URL url, Type type) throws JsonParseException {
+        try {
+            return gson.fromJson(new InputStreamReader(url.openStream()), type);
+        } catch (Exception e) {
+            throw new JsonParseException(e);
+        }
+    }
+
     static String serialize(Object o) {
         return gson.toJson(o);
     }
 
-    static interface AfterJsonParseDeserializable {
+    interface AfterJsonParseDeserializable {
         void afterDeserialization();
     }
 

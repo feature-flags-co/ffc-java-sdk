@@ -50,17 +50,16 @@ abstract class Evaluator {
     }
 
     abstract EvalResult evaluate(DataModel.FeatureFlag flag,
-                                 FFCUser user,
-                                 FeatureFlagKeyExtension.FeatureFlagIdByEnvSecret flagId);
+                                 FFCUser user);
 
-    static enum EvalType {
+    enum EvalType {
         Null(0),
         String(1),
         Boolean(2),
         Number(3),
         Object(4);
 
-        private int code;
+        private final int code;
 
         EvalType(int code) {
             this.code = code;
@@ -93,7 +92,6 @@ abstract class Evaluator {
         private final String value;
         private final String reason;
         private final EvalType type;
-        ;
 
 
         EvalResult(

@@ -17,10 +17,10 @@ public final class FFCUser {
     private final static Function<FFCUser, String> KEY = u -> u.key;
     private final static Function<FFCUser, String> COUNTRY = u -> u.country;
 
-    private final static Map<String, Function<FFCUser, String>> BUILTINS = ImmutableMap.of("name", USERNAME,
-            "keyid", KEY,
-            "country", COUNTRY,
-            "email", EMAIL);
+    private final static Map<String, Function<FFCUser, String>> BUILTINS = ImmutableMap.of("Name", USERNAME,
+            "KeyId", KEY,
+            "Country", COUNTRY,
+            "Email", EMAIL);
 
 
     private final String userName;
@@ -95,7 +95,7 @@ public final class FFCUser {
 
         private String country;
 
-        private Map<String, String> custom = new HashMap<>();
+        private final Map<String, String> custom = new HashMap<>();
 
         public Builder(String key) {
             this.key = key;
@@ -123,7 +123,7 @@ public final class FFCUser {
 
         public FFCUser.Builder custom(String key, String value) {
             if (StringUtils.isNotBlank(key) && value != null) {
-                custom.put(key.toLowerCase(), value);
+                custom.put(key, value);
             }
             return this;
         }

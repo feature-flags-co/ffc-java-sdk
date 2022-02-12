@@ -38,7 +38,7 @@ final class InMemoryDataStorage implements DataStorage {
 
     @Override
     public DataStoreTypes.Item get(DataStoreTypes.Category category, String key) {
-        Map<String, DataStoreTypes.Item> items = allData.get(key);
+        Map<String, DataStoreTypes.Item> items = allData.get(category);
         if (items == null) return null;
         DataStoreTypes.Item item = items.get(key);
         if (item == null || item.item().isArchived()) return null;
@@ -49,8 +49,10 @@ final class InMemoryDataStorage implements DataStorage {
     public Map<String, DataStoreTypes.Item> getAll(DataStoreTypes.Category category) {
         Map<String, DataStoreTypes.Item> items = allData.get(category);
         if (items == null) return null;
-        Iterable<Map.Entry<String, DataStoreTypes.Item>> iter = items.entrySet().stream().filter(entry -> !entry.getValue().item().isArchived()).collect(Collectors.toList());
-        return ImmutableMap.copyOf(iter);
+        Map<String, DataStoreTypes.Item> map = items.entrySet().stream()
+                .filter(entry -> !entry.getValue().item().isArchived())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        return ImmutableMap.copyOf(map);
     }
 
 

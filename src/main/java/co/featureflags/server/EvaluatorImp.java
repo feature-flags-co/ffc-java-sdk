@@ -6,12 +6,10 @@ import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
+import java.math.RoundingMode;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 final class EvaluatorImp extends Evaluator {
 
@@ -20,16 +18,16 @@ final class EvaluatorImp extends Evaluator {
     }
 
     @Override
-    EvalResult evaluate(DataModel.FeatureFlag flag, FFCUser user, FeatureFlagKeyExtension.FeatureFlagIdByEnvSecret flagId) {
+    EvalResult evaluate(DataModel.FeatureFlag flag, FFCUser user) {
         if (user == null) {
             return EvalResult.error(REASON_USER_NOT_SPECIFIED);
         }
-        return matchUserVariation(flag, user, flagId);
+        return matchUserVariation(flag, user);
     }
 
-    private EvalResult matchUserVariation(DataModel.FeatureFlag flag, FFCUser user, FeatureFlagKeyExtension.FeatureFlagIdByEnvSecret flagId) {
+    private EvalResult matchUserVariation(DataModel.FeatureFlag flag, FFCUser user) {
         //return a value when flag is off or not match prerequisite rule
-        EvalResult er = matchFeatureFlagDisabledUserVariation(flag, user, flagId);
+        EvalResult er = matchFeatureFlagDisabledUserVariation(flag, user);
         if (er != null) {
             return er;
         }
@@ -53,7 +51,7 @@ final class EvaluatorImp extends Evaluator {
         return EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_FALLTHROUGH);
     }
 
-    private EvalResult matchFeatureFlagDisabledUserVariation(DataModel.FeatureFlag flag, FFCUser user, FeatureFlagKeyExtension.FeatureFlagIdByEnvSecret flagId) {
+    private EvalResult matchFeatureFlagDisabledUserVariation(DataModel.FeatureFlag flag, FFCUser user) {
         // case flag is off
         if (FLAG_DISABLE_STATS.equals(flag.getInfo().getStatus())) {
             return EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_FLAG_OFF);
@@ -64,15 +62,16 @@ final class EvaluatorImp extends Evaluator {
                     String preFlagId = prerequisite.getPrerequisiteFeatureFlagId();
                     if (!preFlagId.equals(flag.getInfo().getId())) {
                         DataModel.FeatureFlag preFlag = this.flagGetter.get(preFlagId);
-                        // TODO
-                        if (preFlag != null) {
-                            EvalResult er = matchUserVariation(preFlag, user, flagId.copyForNewFlag(preFlagId));
-                            // even if prerequisite flag is off, check if default value of prerequisite flag matches expected value
-                            // if prerequisite failed, return the default value of this flag
-                            if (!er.getIndex().equals(prerequisite.getValueOptionsVariationValue().getLocalId())) {
-                                return true;
-                            }
+                        if (preFlag == null) {
+                            String preFlagKey = FeatureFlagKeyExtension.unpackFeatureFlagId(preFlagId, 4);
+                            logger.warn(String.format("prerequisite flag %s not found", preFlagKey));
+                            return true;
                         }
+                        EvalResult er = matchUserVariation(preFlag, user);
+                        // even if prerequisite flag is off, check if default value of prerequisite flag matches expected value
+                        // if prerequisite failed, return the default value of this flag
+                        return !er.getIndex().equals(prerequisite.getValueOptionsVariationValue().getLocalId());
+
                     }
                     return false;
                 }).findFirst()
@@ -136,13 +135,13 @@ final class EvaluatorImp extends Evaluator {
     }
 
     private boolean falseClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
-        String pv = user.getProperty(clause.getProperty().toLowerCase());
+        String pv = user.getProperty(clause.getProperty());
         //TODO add list of false keyword
         return pv != null && pv.equalsIgnoreCase("false");
     }
 
     private boolean matchRegExClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
-        String pv = user.getProperty(clause.getProperty().toLowerCase());
+        String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
         return pv != null && Pattern.compile(Pattern.quote(clauseValue), Pattern.CASE_INSENSITIVE)
                 .matcher(pv)
@@ -150,31 +149,31 @@ final class EvaluatorImp extends Evaluator {
     }
 
     private boolean trueClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
-        String pv = user.getProperty(clause.getProperty().toLowerCase());
+        String pv = user.getProperty(clause.getProperty());
         //TODO add list of true keyword
         return pv != null && pv.equalsIgnoreCase("true");
     }
 
     private boolean endsWithClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
-        String pv = user.getProperty(clause.getProperty().toLowerCase());
+        String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
         return pv != null && pv.endsWith(clauseValue);
     }
 
     private boolean startsWithClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
-        String pv = user.getProperty(clause.getProperty().toLowerCase());
+        String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
         return pv != null && pv.startsWith(clauseValue);
     }
 
     private boolean thanClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
-        String pv = user.getProperty(clause.getProperty().toLowerCase());
+        String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
         if (!StringUtils.isNumeric(pv) || !StringUtils.isNumeric(clauseValue)) {
             return false;
         }
-        Double pvNumber = new BigDecimal(pv).setScale(5).doubleValue();
-        Double cvNumber = new BigDecimal(clause.getValue()).setScale(5).doubleValue();
+        double pvNumber = new BigDecimal(pv).setScale(5, RoundingMode.HALF_UP).doubleValue();
+        double cvNumber = new BigDecimal(clauseValue).setScale(5,RoundingMode.HALF_UP).doubleValue();
         switch (clause.getOperation()) {
             case GE_CLAUSE:
                 return pvNumber >= cvNumber;
@@ -190,19 +189,19 @@ final class EvaluatorImp extends Evaluator {
     }
 
     private boolean equalsClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
-        String pv = user.getProperty(clause.getProperty().toLowerCase());
+        String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
         return clauseValue.equals(pv);
     }
 
     private boolean containsClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
-        String pv = user.getProperty(clause.getProperty().toLowerCase());
+        String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
         return pv != null && pv.contains(clauseValue);
     }
 
     private boolean oneOfClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
-        String pv = user.getProperty(clause.getProperty().toLowerCase());
+        String pv = user.getProperty(clause.getProperty());
         try {
             List<String> clauseValues = JsonHelper.deserialize(clause.getValue(), new TypeToken<List<String>>() {
             }.getType());

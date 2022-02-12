@@ -15,6 +15,12 @@ abstract class FeatureFlagKeyExtension {
         return String.format("FF__%s__%s__%s__%s", accountId, projectId, envId, featureFlagKeyName);
     }
 
+    static String unpackFeatureFlagId(String featureFlagId, int position) {
+        if (featureFlagId == null || position > 4 || position < 0)
+            return null;
+        return featureFlagId.split("__")[position];
+    }
+
     static final class FeatureFlagIdByEnvSecret {
         private final String featureFlagId;
         private final String envId;
