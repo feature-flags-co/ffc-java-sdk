@@ -19,10 +19,11 @@ final class EvaluatorImp extends Evaluator {
 
     @Override
     EvalResult evaluate(DataModel.FeatureFlag flag, FFCUser user) {
-        if (user == null) {
-            return EvalResult.error(REASON_USER_NOT_SPECIFIED);
+        if (user == null || flag == null) {
+            throw new IllegalArgumentException("null flag or user");
         }
         return matchUserVariation(flag, user);
+
     }
 
     private EvalResult matchUserVariation(DataModel.FeatureFlag flag, FFCUser user) {
@@ -173,7 +174,7 @@ final class EvaluatorImp extends Evaluator {
             return false;
         }
         double pvNumber = new BigDecimal(pv).setScale(5, RoundingMode.HALF_UP).doubleValue();
-        double cvNumber = new BigDecimal(clauseValue).setScale(5,RoundingMode.HALF_UP).doubleValue();
+        double cvNumber = new BigDecimal(clauseValue).setScale(5, RoundingMode.HALF_UP).doubleValue();
         switch (clause.getOperation()) {
             case GE_CLAUSE:
                 return pvNumber >= cvNumber;

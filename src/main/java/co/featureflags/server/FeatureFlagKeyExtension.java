@@ -1,7 +1,8 @@
 package co.featureflags.server;
 
+import org.apache.commons.codec.binary.Base64;
+
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 
 abstract class FeatureFlagKeyExtension {
     private FeatureFlagKeyExtension() {
@@ -38,7 +39,7 @@ abstract class FeatureFlagKeyExtension {
         }
 
         static FeatureFlagIdByEnvSecret of(String envSecret, String featureFlagKeyName) {
-            byte[] keyOriginTextByte = Base64.getDecoder().decode(envSecret);
+            byte[] keyOriginTextByte = Base64.decodeBase64(envSecret);
             String[] keyOriginText = new String(keyOriginTextByte, StandardCharsets.UTF_8).split("__");
             String accountId = keyOriginText[1];
             String projectId = keyOriginText[2];

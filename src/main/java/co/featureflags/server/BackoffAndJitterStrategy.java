@@ -59,6 +59,7 @@ class BackoffAndJitterStrategy {
             duration = Duration.ofMillis(delayInMillis);
         }
         retryCount++;
+        Loggers.UPDATE_PROCESSOR.debug(String.format("next delay : %d", duration.toMillis()));
         return duration;
     }
 

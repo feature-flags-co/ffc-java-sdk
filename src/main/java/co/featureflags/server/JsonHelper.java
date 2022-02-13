@@ -9,11 +9,9 @@ import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.Reader;
 import java.lang.reflect.Type;
-import java.net.URL;
 
 abstract class JsonHelper {
     private static final Gson gson = new GsonBuilder()
@@ -43,17 +41,17 @@ abstract class JsonHelper {
         }
     }
 
-    static <T> T deserialize(URL url, Class<T> objectClass) throws JsonParseException {
+    static <T> T deserialize(Reader reader, Class<T> objectClass) throws JsonParseException {
         try {
-            return gson.fromJson(new InputStreamReader(url.openStream()), objectClass);
+            return gson.fromJson(reader, objectClass);
         } catch (Exception e) {
             throw new JsonParseException(e);
         }
     }
 
-    static <T> T deserialize(URL url, Type type) throws JsonParseException {
+    static <T> T deserialize(Reader reader, Type type) throws JsonParseException {
         try {
-            return gson.fromJson(new InputStreamReader(url.openStream()), type);
+            return gson.fromJson(reader, type);
         } catch (Exception e) {
             throw new JsonParseException(e);
         }

@@ -10,11 +10,6 @@ public final class BasicConfig {
         this.offline = offline;
     }
 
-    public BasicConfig(String envSecret) {
-        this.envSecret = envSecret;
-        this.offline = false;
-    }
-
     public String getEnvSecret() {
         return envSecret;
     }

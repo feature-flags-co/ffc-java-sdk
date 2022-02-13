@@ -20,6 +20,10 @@ abstract class Evaluator {
     protected static final String REASON_TARGET_MATCH = "target match";
     protected static final String REASON_RULE_MATCH = "rule match";
     protected static final String REASON_FALLTHROUGH = "fall through all rules";
+    protected static final String REASON_CLIENT_NOT_READY = "client not ready";
+    protected static final String REASON_FLAG_NOT_FOUND = "flag not found";
+    protected static final String REASON_WRONG_TYPE = "wrong type";
+    protected static final String REASON_ERROR = "error in evaluation";
 
     protected static final String THAN_CLAUSE = "Than";
     protected static final String GE_CLAUSE = "BiggerEqualThan";
@@ -49,38 +53,7 @@ abstract class Evaluator {
         this.flagGetter = flagGetter;
     }
 
-    abstract EvalResult evaluate(DataModel.FeatureFlag flag,
-                                 FFCUser user);
-
-    enum EvalType {
-        Null(0),
-        String(1),
-        Boolean(2),
-        Number(3),
-        Object(4);
-
-        private final int code;
-
-        EvalType(int code) {
-            this.code = code;
-        }
-
-        public static EvalType checkType(String value) {
-            if (value == null)
-                return Null;
-            if (StringUtils.isNumeric(value)) {
-                return Number;
-            }
-            if (BooleanUtils.toBooleanObject(value) != null) {
-                return Boolean;
-            }
-            return String;
-        }
-
-        public int getCode() {
-            return code;
-        }
-    }
+    abstract EvalResult evaluate(DataModel.FeatureFlag flag, FFCUser user);
 
     @FunctionalInterface
     interface Getter<T extends DataModel.TimestampData> {
@@ -91,21 +64,20 @@ abstract class Evaluator {
         private final Integer index;
         private final String value;
         private final String reason;
-        private final EvalType type;
 
 
-        EvalResult(
-                String value,
-                Integer index,
-                String reason) {
+        EvalResult(String value, Integer index, String reason) {
             this.value = value;
             this.index = index;
             this.reason = reason;
-            this.type = EvalType.checkType(value);
         }
 
         public static EvalResult error(String reason) {
             return new EvalResult(null, NO_EVAL_RES, reason);
+        }
+
+        public static EvalResult error(String defaultValue, String reason) {
+            return new EvalResult(defaultValue, NO_EVAL_RES, reason);
         }
 
         public static EvalResult of(DataModel.VariationOption option, String reason) {
@@ -124,8 +96,20 @@ abstract class Evaluator {
             return reason;
         }
 
-        public EvalType getType() {
-            return type;
+        public boolean checkType(Object defaultValue) {
+            if (value == null) {
+                return false;
+            }
+            if (defaultValue instanceof String) {
+                return true;
+            }
+            if (defaultValue instanceof Boolean && BooleanUtils.toBooleanObject(value) != null) {
+                return true;
+            }
+            if ((defaultValue instanceof Integer || defaultValue instanceof Long || defaultValue instanceof Double) && StringUtils.isNumeric(value)) {
+                return true;
+            }
+            return false;
         }
     }
 

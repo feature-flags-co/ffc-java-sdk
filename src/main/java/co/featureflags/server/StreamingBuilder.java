@@ -1,5 +1,6 @@
-package co.featureflags.server.exterior;
+package co.featureflags.server;
 
+import co.featureflags.server.exterior.UpdateProcessorFactory;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.Duration;
@@ -10,6 +11,7 @@ public abstract class StreamingBuilder implements UpdateProcessorFactory {
     protected String streamingURI;
     protected Duration firstRetryDelay;
     protected Integer maxRetryTimes = 0;
+    boolean testMode = false;
 
     public StreamingBuilder newStreamingURI(String uri) {
         this.streamingURI = StringUtils.isBlank(uri) ? DEFAULT_STREAMING_URI : uri;
@@ -27,4 +29,8 @@ public abstract class StreamingBuilder implements UpdateProcessorFactory {
         return this;
     }
 
+    StreamingBuilder testMode(boolean testMode) {
+        this.testMode = testMode;
+        return this;
+    }
 }

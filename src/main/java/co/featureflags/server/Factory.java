@@ -12,15 +12,24 @@ public abstract class Factory {
         super();
     }
 
-    public static HttpConfigFactory httpConfigFactory() {
+    public static HttpConfigurationBuilder httpConfigFactory() {
         return new FactoryImp.HttpConfigurationBuilderImpl();
     }
 
-    public static UpdateProcessorFactory streamingBuilder() {
+    public static StreamingBuilder streamingBuilder() {
         return new FactoryImp.StreamingBuilderImpl();
     }
 
     public static DataStorageFactory inMemoryDataStorageFactory() {
         return FactoryImp.InMemoryDataStorageFactory.SINGLETON;
     }
+
+    public static DataStorageFactory nullDataStorageFactory() {
+        return FactoryImp.NullDataStorageFactory.SINGLETON;
+    }
+
+    public static UpdateProcessorFactory nullUpdateProcessorFactory() {
+        return FactoryImp.NullUpdateProcessorFactory.SINGLETON;
+    }
+
 }

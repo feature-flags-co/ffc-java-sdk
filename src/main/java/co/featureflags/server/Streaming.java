@@ -40,12 +40,13 @@ final class Streaming implements UpdateProcessor {
     private final Integer INVALID_REQUEST_CLOSE = 4003;
     private final String INVALID_REQUEST_CLOSE_REASON = "invalid request";
     private final Map<Integer, String> NOT_RECONN_CLOSE_REASON = ImmutableMap.of(NORMAL_CLOSE, NORMAL_CLOSE_REASON,
-            GOING_AWAY_CLOSE, GOING_AWAY_CLOSE_REASON);
+            GOING_AWAY_CLOSE, GOING_AWAY_CLOSE_REASON,
+            INVALID_REQUEST_CLOSE, INVALID_REQUEST_CLOSE_REASON);
     private final List<Class<? extends Exception>> RECONNECT_EXCEPTIONS = ImmutableList.of(SocketTimeoutException.class,
             SocketException.class, EOFException.class);
-    private final Duration PING_INTERVAL = Duration.ofSeconds(60);
-    private final String DEFAULT_STREAMING_PATH = "/streaming";
-    private final String AUTH_PARAMS = "?token=%s&type=server";
+    private final Duration PING_INTERVAL = Duration.ofSeconds(30);
+    private static final String DEFAULT_STREAMING_PATH = "/streaming";
+    private static final String AUTH_PARAMS = "?token=%s&type=server";
     private final Logger logger = Loggers.UPDATE_PROCESSOR;
 
     // final viariables
@@ -54,28 +55,33 @@ final class Streaming implements UpdateProcessor {
     private final AtomicInteger connCount = new AtomicInteger(0);
     private final ExecutorService storageUpdateExecutor = Executors.newFixedThreadPool(5);
     private final CompletableFuture<Boolean> initFuture = new CompletableFuture<>();
-    private final StreamingWebSocketListener listener = new StreamingWebSocketListener();
+    private final StreamingWebSocketListener listener = new DefaultWebSocketListener();
     private final DataStorage storage;
     private final BasicConfig basicConfig;
     private final HttpConfig httpConfig;
     private final Integer maxRetryTimes;
     private final BackoffAndJitterStrategy strategy;
+    private final String streamingURI;
     private final String streamingURL;
 
     private OkHttpClient okHttpClient;
     private WebSocket webSocket;
+    private boolean testMode;
 
     Streaming(DataStorage storage,
               Context config,
               String streamingURI,
               Duration firstRetryDelay,
-              Integer maxRetryTimes) {
+              Integer maxRetryTimes,
+              boolean testMode) {
         this.storage = storage;
         this.basicConfig = config.basicConfig();
         this.httpConfig = config.http();
+        this.streamingURI = streamingURI;
         this.streamingURL = StringUtils.stripEnd(streamingURI, "/").concat(DEFAULT_STREAMING_PATH);
         this.strategy = new BackoffAndJitterStrategy(firstRetryDelay);
         this.maxRetryTimes = (maxRetryTimes == null || maxRetryTimes <= 0) ? Integer.MAX_VALUE : maxRetryTimes;
+        this.testMode = testMode;
     }
 
     @Override
@@ -115,8 +121,13 @@ final class Streaming implements UpdateProcessor {
             return;
         }
         okHttpClient = buildWebOkHttpClient();
-        String token = Utils.buildToken(basicConfig.getEnvSecret());
-        String url = String.format(streamingURL.concat(AUTH_PARAMS), token);
+        String url;
+        if (testMode) {
+            url = streamingURI;
+        } else {
+            String token = Utils.buildToken(basicConfig.getEnvSecret());
+            url = String.format(streamingURL.concat(AUTH_PARAMS), token);
+        }
         Headers headers = Utils.headersBuilderFor(httpConfig).build();
         Request.Builder requestBuilder = new Request.Builder();
         requestBuilder.headers(headers);
@@ -128,9 +139,11 @@ final class Streaming implements UpdateProcessor {
     }
 
     private void reconnect(boolean forceToUseMaxRetryDelay) {
-        Duration delay = strategy.nextDelay(forceToUseMaxRetryDelay);
         try {
-            Thread.sleep(delay.toMillis());
+            Duration delay = strategy.nextDelay(forceToUseMaxRetryDelay);
+            long delayInMillis = delay.toMillis();
+            logger.info(String.format("Streaming WebSocket will reconnect in %d milliseconds", delayInMillis));
+            Thread.sleep(delayInMillis);
         } catch (InterruptedException ie) {
         } finally {
             connect();
@@ -144,8 +157,7 @@ final class Streaming implements UpdateProcessor {
                 .pingInterval(PING_INTERVAL)
                 .retryOnConnectionFailure(false);
         Utils.buildProxyAndSocketFactoryFor(builder, httpConfig);
-        OkHttpClient client = builder.build();
-        return client;
+        return builder.build();
     }
 
     private Runnable processDate(final DataModel.All allData) {
@@ -167,49 +179,12 @@ final class Streaming implements UpdateProcessor {
                 }
                 if (!initialized.getAndSet(true)) {
                     initFuture.complete(true);
-                    logger.info("Initialized JAVA SDK client");
                 }
             }
         };
     }
 
-    private final class StreamingWebSocketListener extends WebSocketListener {
-
-        @Override
-        public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
-            boolean isReconn = true;
-            String message = NOT_RECONN_CLOSE_REASON.get(Integer.valueOf(code));
-            if (message == null) {
-                isReconn = false;
-                message = StringUtils.isEmpty(reason) ? "unexpected close" : reason;
-            }
-            logger.info("Streaming WebSocket close reason: %s", message);
-            isWSConnected.compareAndSet(true, false);
-            if (isReconn) {
-                reconnect(false);
-            }
-        }
-
-        @Override
-        public void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t, @Nullable Response response) {
-            logger.error("Streaming WebSocket Failure", t);
-            isWSConnected.compareAndSet(true, false);
-            boolean forceToUseMaxRetryDelay = false;
-            boolean isReconn = false;
-            Class tClass = t.getClass();
-            for (Class cls : RECONNECT_EXCEPTIONS) {
-                if (tClass == cls) {
-                    isReconn = true;
-                    if (tClass == EOFException.class) {
-                        forceToUseMaxRetryDelay = true;
-                    }
-                }
-            }
-            if (isReconn) {
-                reconnect(forceToUseMaxRetryDelay);
-            }
-        }
-
+    private final class DefaultWebSocketListener extends StreamingWebSocketListener {
         @Override
         public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
             try {
@@ -223,8 +198,7 @@ final class Streaming implements UpdateProcessor {
 
         @Override
         public void onOpen(@NotNull WebSocket webSocket, @NotNull Response response) {
-            logger.info("Ask data updating");
-            isWSConnected.compareAndSet(false, true);
+            super.onOpen(webSocket, response);
             String json;
             if (storage.isInitialized()) {
                 Long timestamp = storage.getVersion();
@@ -233,6 +207,52 @@ final class Streaming implements UpdateProcessor {
                 json = JsonHelper.serialize(new DataModel.DataSyncMessage(0L));
             }
             webSocket.send(json);
+        }
+    }
+
+
+    abstract class StreamingWebSocketListener extends WebSocketListener {
+
+        @Override
+        public final void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
+            boolean isReconn = false;
+            String message = NOT_RECONN_CLOSE_REASON.get(code);
+            if (message == null) {
+                isReconn = true;
+                message = StringUtils.isEmpty(reason) ? "unexpected close" : reason;
+            }
+            logger.info(String.format("Streaming WebSocket close reason: %s", message));
+            isWSConnected.compareAndSet(true, false);
+            if (isReconn) {
+                reconnect(false);
+            }
+        }
+
+        @Override
+        public final void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t, @Nullable Response response) {
+            logger.error("Streaming WebSocket Failure", t);
+            isWSConnected.compareAndSet(true, false);
+            boolean forceToUseMaxRetryDelay = false;
+            boolean isReconn = false;
+            Class<? extends Throwable> tClass = t.getClass();
+            for (Class<? extends Exception> cls : RECONNECT_EXCEPTIONS) {
+                if (tClass == cls) {
+                    isReconn = true;
+                    // maybe kicked off by server side
+                    if (tClass == EOFException.class) {
+                        forceToUseMaxRetryDelay = true;
+                    }
+                }
+            }
+            if (isReconn) {
+                reconnect(forceToUseMaxRetryDelay);
+            }
+        }
+
+        @Override
+        public void onOpen(@NotNull WebSocket webSocket, @NotNull Response response) {
+            logger.info("Ask data updating");
+            isWSConnected.compareAndSet(false, true);
         }
     }
 

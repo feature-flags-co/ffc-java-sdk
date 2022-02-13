@@ -61,37 +61,37 @@ final class InMemoryDataStorage implements DataStorage {
         if (version == null || this.version >= version || item == null || item.item() == null) {
             return false;
         }
-        Map<String, DataStoreTypes.Item> oldItems = allData.get(category);
-        DataStoreTypes.Item oldItem = null;
-        if (oldItems != null) {
-            oldItem = oldItems.get(key);
-            if (oldItem != null && oldItem.item().getTimestamp() >= item.item().getTimestamp()) return false;
-        }
-        // the data cannot change in any way once an instance of the Immutable Map is created.
-        // we should re-initialize a new internal map when update
-        ImmutableMap.Builder<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> newData = ImmutableMap.builder();
-        for (Map.Entry<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> entry : allData.entrySet()) {
-            if (!entry.getKey().equals(category)) {
-                newData.put(entry.getKey(), entry.getValue());
+        synchronized (writeLock) {
+            Map<String, DataStoreTypes.Item> oldItems = allData.get(category);
+            DataStoreTypes.Item oldItem = null;
+            if (oldItems != null) {
+                oldItem = oldItems.get(key);
+                if (oldItem != null && oldItem.item().getTimestamp() >= item.item().getTimestamp()) return false;
             }
-        }
-        if (oldItems == null) {
-            newData.put(category, ImmutableMap.of(key, item));
-        } else {
-            ImmutableMap.Builder<String, DataStoreTypes.Item> newItems = ImmutableMap.builder();
-            if (oldItem == null) {
-                newItems.putAll(oldItems);
-            } else {
-                for (Map.Entry<String, DataStoreTypes.Item> entry : oldItems.entrySet()) {
-                    if (!entry.getKey().equals(key)) {
-                        newItems.put(entry.getKey(), entry.getValue());
-                    }
+            // the data cannot change in any way once an instance of the Immutable Map is created.
+            // we should re-initialize a new internal map when update
+            ImmutableMap.Builder<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> newData = ImmutableMap.builder();
+            for (Map.Entry<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> entry : allData.entrySet()) {
+                if (!entry.getKey().equals(category)) {
+                    newData.put(entry.getKey(), entry.getValue());
                 }
             }
-            newItems.put(key, item);
-            newData.put(category, newItems.build());
-        }
-        synchronized (writeLock) {
+            if (oldItems == null) {
+                newData.put(category, ImmutableMap.of(key, item));
+            } else {
+                ImmutableMap.Builder<String, DataStoreTypes.Item> newItems = ImmutableMap.builder();
+                if (oldItem == null) {
+                    newItems.putAll(oldItems);
+                } else {
+                    for (Map.Entry<String, DataStoreTypes.Item> entry : oldItems.entrySet()) {
+                        if (!entry.getKey().equals(key)) {
+                            newItems.put(entry.getKey(), entry.getValue());
+                        }
+                    }
+                }
+                newItems.put(key, item);
+                newData.put(category, newItems.build());
+            }
             allData = newData.build();
             this.version = version;
             if (!initialized) initialized = true;
@@ -111,5 +111,6 @@ final class InMemoryDataStorage implements DataStorage {
 
     @Override
     public void close() {
+        initialized = false;
     }
 }

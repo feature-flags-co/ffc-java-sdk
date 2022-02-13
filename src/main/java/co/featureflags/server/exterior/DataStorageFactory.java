@@ -1,5 +1,5 @@
 package co.featureflags.server.exterior;
 
 public interface DataStorageFactory {
-    DataStorage createDataStorage(Context config);
+    DataStorage createDataStorage(Context context);
 }

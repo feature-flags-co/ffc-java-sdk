@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 abstract class Loggers {
-    static final String BASE_LOGGER_NAME = FFCClient.class.getName();
+    static final String BASE_LOGGER_NAME = FFCClientImp.class.getName();
     static final Logger CLIENT = LoggerFactory.getLogger(BASE_LOGGER_NAME);
     private static final String DATA_UPDATE_PROCESSOR_LOGGER_NAME = BASE_LOGGER_NAME + ".UpdateProcessor";
     static final Logger UPDATE_PROCESSOR = LoggerFactory.getLogger(DATA_UPDATE_PROCESSOR_LOGGER_NAME);
