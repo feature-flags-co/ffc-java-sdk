@@ -6,12 +6,17 @@ import okhttp3.Authenticator;
 import okhttp3.Credentials;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.stream.Collectors;
 
 public abstract class Utils {
 
@@ -22,16 +27,12 @@ public abstract class Utils {
                 .entrySet();
     }
 
-    public static ThreadFactory createThreadFactory(final String name,
-                                                    final boolean isDaemon,
-                                                    final Integer threadPriority) {
-        return runnable -> {
-            Thread t = Executors.defaultThreadFactory().newThread(runnable);
-            t.setDaemon(isDaemon);
-            t.setPriority(threadPriority);
-            t.setName(name);
-            return t;
-        };
+    public static ThreadFactory createThreadFactory(final String nameStyle,
+                                                    final boolean isDaemon) {
+        return new BasicThreadFactory.Builder()
+                .namingPattern(nameStyle)
+                .daemon(isDaemon)
+                .build();
     }
 
     public static Proxy buildHTTPProxy(String proxyHost, int proxyPort) {
@@ -86,8 +87,37 @@ public abstract class Utils {
         }
     }
 
+    private static final Map<String, String> ALPHABETS =
+            ImmutableMap.of("0", "Q",
+                    "1", "B",
+                    "2", "W",
+                    "3", "S",
+                    "4", "P",
+                    "5", "H",
+                    "6", "D",
+                    "7", "X",
+                    "8", "Z",
+                    "9", "U");
+
+    private static String encodeNumber(long number, int length) {
+        String str = "000000000000" + number;
+        String numberWithLeadingZeros = str.substring(str.length() - length);
+        return new ArrayList<>(Arrays.asList(numberWithLeadingZeros.split("")))
+                .stream().map(ALPHABETS::get).collect(Collectors.joining());
+
+    }
+
     public static String buildToken(String envSecret) {
-        return envSecret;
+        String text = StringUtils.stripEnd(envSecret, "=");
+        long now = Instant.now().toEpochMilli();
+        String timestampCode = encodeNumber(now, String.valueOf(now).length());
+        int start = Math.max((int) Math.floor(Math.random() * text.length()), 2);
+        String part1 = encodeNumber(start, 3);
+        String part2 = encodeNumber(timestampCode.length(), 2);
+        String part3 = text.substring(0, start);
+        String part4 = timestampCode;
+        String part5 = text.substring(start);
+        return String.format("%s%s%s%s%s", part1, part2, part3, part4, part5);
     }
 
 }

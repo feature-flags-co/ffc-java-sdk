@@ -33,6 +33,7 @@ final class InMemoryDataStorage implements DataStorage {
             this.allData = ImmutableMap.copyOf(allData);
             initialized = true;
             this.version = version;
+            Loggers.DATA_STORAGE.debug("Data storage initialized");
         }
     }
 
@@ -95,6 +96,7 @@ final class InMemoryDataStorage implements DataStorage {
             allData = newData.build();
             this.version = version;
             if (!initialized) initialized = true;
+            Loggers.DATA_STORAGE.debug(String.format("upsert item %s into storage", key));
         }
         return true;
     }

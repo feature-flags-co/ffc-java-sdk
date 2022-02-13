@@ -7,9 +7,9 @@ import co.featureflags.server.exterior.UpdateProcessorFactory;
 import java.time.Duration;
 
 public class FFCConfig {
-    static final String DEFAULT_BASE_URI = "";
-    static final String DEFAULT_STREAMING_URI = "";
-    static final String DEFAULT_EVENTS_URI = "";
+    static final String DEFAULT_BASE_URI = "https://api.feature-flags.co";
+    static final String DEFAULT_STREAMING_URI = "wss://api.feature-flags.co";
+    static final String DEFAULT_EVENTS_URI = "https://api.feature-flags.co";
     static final Duration DEFAULT_START_WAIT_TIME = Duration.ofSeconds(15);
     static final FFCConfig DEFAULT = new FFCConfig.Builder().build();
 

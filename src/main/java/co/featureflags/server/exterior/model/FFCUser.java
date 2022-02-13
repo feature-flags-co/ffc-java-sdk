@@ -67,7 +67,7 @@ public final class FFCUser {
     }
 
     public String getProperty(String property) {
-        Function<FFCUser, String> f = BUILTINS.get(key);
+        Function<FFCUser, String> f = BUILTINS.get(property);
         if (f == null) {
             return custom.get(property);
         }

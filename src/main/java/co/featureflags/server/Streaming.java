@@ -53,9 +53,9 @@ final class Streaming implements UpdateProcessor {
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private final AtomicBoolean isWSConnected = new AtomicBoolean(false);
     private final AtomicInteger connCount = new AtomicInteger(0);
-    private final ExecutorService storageUpdateExecutor = Executors.newFixedThreadPool(5);
     private final CompletableFuture<Boolean> initFuture = new CompletableFuture<>();
     private final StreamingWebSocketListener listener = new DefaultWebSocketListener();
+    private final ExecutorService storageUpdateExecutor;
     private final DataStorage storage;
     private final BasicConfig basicConfig;
     private final HttpConfig httpConfig;
@@ -63,10 +63,10 @@ final class Streaming implements UpdateProcessor {
     private final BackoffAndJitterStrategy strategy;
     private final String streamingURI;
     private final String streamingURL;
+    private final boolean testMode;
 
     private OkHttpClient okHttpClient;
     private WebSocket webSocket;
-    private boolean testMode;
 
     Streaming(DataStorage storage,
               Context config,
@@ -81,6 +81,8 @@ final class Streaming implements UpdateProcessor {
         this.streamingURL = StringUtils.stripEnd(streamingURI, "/").concat(DEFAULT_STREAMING_PATH);
         this.strategy = new BackoffAndJitterStrategy(firstRetryDelay);
         this.maxRetryTimes = (maxRetryTimes == null || maxRetryTimes <= 0) ? Integer.MAX_VALUE : maxRetryTimes;
+
+        this.storageUpdateExecutor = Executors.newFixedThreadPool(5, Utils.createThreadFactory("workerthread-%d", true));
         this.testMode = testMode;
     }
 
@@ -106,6 +108,7 @@ final class Streaming implements UpdateProcessor {
             } finally {
                 storageUpdateExecutor.shutdown();
                 okHttpClient.dispatcher().executorService().shutdown();
+                okHttpClient.connectionPool().evictAll();
             }
         }
     }
@@ -145,6 +148,7 @@ final class Streaming implements UpdateProcessor {
             logger.info(String.format("Streaming WebSocket will reconnect in %d milliseconds", delayInMillis));
             Thread.sleep(delayInMillis);
         } catch (InterruptedException ie) {
+            logger.warn("unexpected interruption");
         } finally {
             connect();
         }

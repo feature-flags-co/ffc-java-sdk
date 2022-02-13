@@ -6,7 +6,7 @@ import org.apache.commons.lang3.StringUtils;
 import java.time.Duration;
 
 public abstract class StreamingBuilder implements UpdateProcessorFactory {
-    protected static final String DEFAULT_STREAMING_URI = "ws://localhost:5000";
+    protected static final String DEFAULT_STREAMING_URI = "wss://api.feature-flags.co";
     protected static final Duration DEFAULT_FIRST_RETRY_DURATION = Duration.ofSeconds(1);
     protected String streamingURI;
     protected Duration firstRetryDelay;
