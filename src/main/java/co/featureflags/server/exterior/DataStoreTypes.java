@@ -23,10 +23,14 @@ public abstract class DataStoreTypes {
         private final String pollingApiUrl;
         private final String streamingApiUrl;
 
-        public Category(String name, String pollingApiUrl, String streamingApiUrl) {
+        private Category(String name, String pollingApiUrl, String streamingApiUrl) {
             this.name = name;
             this.pollingApiUrl = pollingApiUrl;
             this.streamingApiUrl = streamingApiUrl;
+        }
+
+        public static Category of(String name) {
+            return new Category(name, "unknown", "unknown");
         }
 
         @Override
@@ -86,36 +90,47 @@ public abstract class DataStoreTypes {
         }
     }
 
-    public static final class PersistentItem implements Serializable {
+    public static final class PersistentItem implements DataModel.TimestampData, Serializable {
         private final String id;
-        private final Integer version;
-        private final boolean isArchived;
+        private final Long timestamp;
+        private final Boolean isArchived;
         private final String json;
 
-        public PersistentItem(String id,
-                              Integer version,
-                              boolean isArchived,
-                              String json) {
+        private PersistentItem(String id,
+                               Long timestamp,
+                               Boolean isArchived,
+                               String json) {
             this.id = id;
-            this.version = version;
+            this.timestamp = timestamp;
             this.isArchived = isArchived;
             this.json = json;
         }
 
+        public static PersistentItem of(String id,
+                                        Long timestamp,
+                                        Boolean isArchived,
+                                        String json) {
+            return new PersistentItem(id, timestamp, isArchived, json);
+        }
+
+        @Override
         public String getId() {
             return id;
         }
 
-        public Integer getVersion() {
-            return version;
-        }
-
+        @Override
         public boolean isArchived() {
             return isArchived;
         }
 
-        public String getJson() {
-            return json;
+        @Override
+        public Long getTimestamp() {
+            return timestamp;
+        }
+
+        @Override
+        public Integer getType() {
+            return FFC_PERSISTENT_VDATA;
         }
 
         @Override
@@ -123,19 +138,19 @@ public abstract class DataStoreTypes {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             PersistentItem that = (PersistentItem) o;
-            return isArchived == that.isArchived && Objects.equals(id, that.id) && Objects.equals(version, that.version) && Objects.equals(json, that.json);
+            return Objects.equals(id, that.id) && Objects.equals(timestamp, that.timestamp) && Objects.equals(isArchived, that.isArchived) && Objects.equals(json, that.json);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(id, version, isArchived, json);
+            return Objects.hash(id, timestamp, isArchived, json);
         }
 
         @Override
         public String toString() {
             return MoreObjects.toStringHelper(this)
                     .add("id", id)
-                    .add("version", version)
+                    .add("timestamp", timestamp)
                     .add("isArchived", isArchived)
                     .add("json", json)
                     .toString();

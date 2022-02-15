@@ -144,7 +144,7 @@ public final class FFCClientImp implements FFCClient {
             }
 
             if (!this.storage.isInitialized()) {
-                logger.info("BUT JAVA SDK Client was not successfully initialized");
+                logger.info("JAVA SDK Client was not successfully initialized");
             }
         }
     }

@@ -15,23 +15,101 @@ public abstract class Status {
 
     public static final String DATA_STORAGE_INIT_ERROR = "Data Storage init error";
     public static final String DATA_STORAGE_UPDATE_ERROR = "Data Storage update error";
-    public static final String DATA_INVALID_ERROR = "Received Data or Request invalid";
-    public static final String NETWORK_OR_RUNTIME_ERROR = "Network or Runtime Error";
+    public static final String REQUEST_INVALID_ERROR = "Request invalid";
+    public static final String DATA_INVALID_ERROR = "Received Data invalid";
+    public static final String NETWORK_ERROR = "Network error";
+    public static final String RUNTIME_ERROR = "Runtime error";
+    public static final String UNKNOWN_ERROR = "Unknown error";
+    public static final String UNKNOWN_CLOSE_CODE = "Unknown close code";
 
 
     public enum StateType {
         INITIALIZING, OK, INTERRUPTED, OFF
     }
 
+    public static class ErrorInfo implements Serializable {
+        private final String errorType;
+        private final String message;
+
+        private ErrorInfo(String errorType, String message) {
+            this.errorType = errorType;
+            this.message = message;
+        }
+
+        public static ErrorInfo of(String errorType, String message) {
+            return new ErrorInfo(errorType, message);
+        }
+
+        public static ErrorInfo of(String errorType) {
+            return new ErrorInfo(errorType, null);
+        }
+
+        public String getErrorType() {
+            return errorType;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ErrorInfo errorInfo = (ErrorInfo) o;
+            return Objects.equals(errorType, errorInfo.errorType) && Objects.equals(message, errorInfo.message);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(errorType, message);
+        }
+
+        @Override
+        public String toString() {
+            return MoreObjects.toStringHelper(this)
+                    .add("errorType", errorType)
+                    .add("message", message)
+                    .toString();
+        }
+    }
+
     public static final class State implements Serializable {
         private final StateType stateType;
         private final Instant stateSince;
-        private final String message;
+        private final ErrorInfo info;
 
-        public State(StateType stateType, Instant stateSince, String message) {
+        private State(StateType stateType, Instant stateSince, ErrorInfo info) {
             this.stateType = stateType;
             this.stateSince = stateSince;
-            this.message = message;
+            this.info = info;
+        }
+
+        public static State initializingState() {
+            return new State(StateType.OK, Instant.now(), null);
+        }
+
+        public static State OKState() {
+            return new State(StateType.OK, Instant.now(), null);
+        }
+
+        public static State normalOFFState() {
+            return new State(StateType.OFF, Instant.now(), null);
+        }
+
+        public static State errorOFFState(String errorType, String message) {
+            return new State(StateType.OFF, Instant.now(), ErrorInfo.of(errorType, message));
+        }
+
+        public static State interruptedState(String errorType, String message) {
+            return new State(StateType.INTERRUPTED, Instant.now(), ErrorInfo.of(errorType, message));
+        }
+
+        public static State of(StateType stateType,
+                               Instant stateSince,
+                               String errorType,
+                               String message) {
+            return new State(stateType, stateSince, ErrorInfo.of(errorType, message));
         }
 
         public StateType getStateType() {
@@ -42,13 +120,17 @@ public abstract class Status {
             return stateSince;
         }
 
-        public String getMessage() {
-            return message;
+        public ErrorInfo getInfo() {
+            return info;
         }
 
         @Override
         public String toString() {
-            return MoreObjects.toStringHelper(this).add("stateType", stateType).add("stateSince", stateSince).add("message", message).toString();
+            return MoreObjects.toStringHelper(this)
+                    .add("stateType", stateType)
+                    .add("stateSince", stateSince)
+                    .add("info", info)
+                    .toString();
         }
 
         @Override
@@ -56,12 +138,12 @@ public abstract class Status {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             State state = (State) o;
-            return stateType == state.stateType && Objects.equals(stateSince, state.stateSince) && Objects.equals(message, state.message);
+            return stateType == state.stateType && Objects.equals(stateSince, state.stateSince) && Objects.equals(info, state.info);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(stateType, stateSince, message);
+            return Objects.hash(stateType, stateSince, info);
         }
     }
 
@@ -79,7 +161,7 @@ public abstract class Status {
 
         boolean upsert(DataStoreTypes.Category category, String key, DataStoreTypes.Item item, Long version);
 
-        void updateStatus(StateType newState, String message);
+        void updateStatus(StateType newState, ErrorInfo message);
 
         long getVersion();
 
@@ -103,12 +185,12 @@ public abstract class Status {
 
         public DataUpdatorImpl(DataStorage storage, boolean offline) {
             this.storage = storage;
-            this.currentState = new State(offline ? StateType.OK : StateType.INITIALIZING, Instant.now(), null);
+            this.currentState = State.initializingState();
         }
 
-        private void handleErrorFromStorage(Exception ex, String reason) {
+        private void handleErrorFromStorage(Exception ex, ErrorInfo errorInfo) {
             Loggers.DATA_STORAGE.warn("Data Storage error: {}, UpdateProcessor will attempt to receive the data", ex.getMessage());
-            updateStatus(StateType.INTERRUPTED, reason);
+            updateStatus(StateType.INTERRUPTED, errorInfo);
         }
 
         @Override
@@ -116,7 +198,7 @@ public abstract class Status {
             try {
                 storage.init(allData, version);
             } catch (Exception ex) {
-                handleErrorFromStorage(ex, DATA_STORAGE_INIT_ERROR);
+                handleErrorFromStorage(ex, ErrorInfo.of(DATA_STORAGE_INIT_ERROR, ex.getMessage()));
                 return false;
             }
             //TODO Flag Change Notifying->new thread
@@ -128,7 +210,7 @@ public abstract class Status {
             try {
                 storage.upsert(category, key, item, version);
             } catch (Exception ex) {
-                handleErrorFromStorage(ex, DATA_STORAGE_UPDATE_ERROR);
+                handleErrorFromStorage(ex, ErrorInfo.of(DATA_STORAGE_UPDATE_ERROR, ex.getMessage()));
                 return false;
             }
             //TODO Flag Change Notifying->new thread
@@ -136,18 +218,20 @@ public abstract class Status {
         }
 
         @Override
-        public void updateStatus(StateType newState, String message) {
+        public void updateStatus(StateType newState, ErrorInfo message) {
             if (newState == null) {
                 return;
             }
             synchronized (lockObject) {
                 StateType oldOne = currentState.getStateType();
+                // interruped state is only meaningful after initialization
                 if (newState == StateType.INTERRUPTED && oldOne == StateType.INITIALIZING) {
-                    // still in the process of initialization
                     newState = StateType.INITIALIZING;
                 }
-                if (newState != oldOne || StringUtils.isNotBlank(message)) {
-                    currentState = new State(newState, Instant.now(), message);
+
+                if (newState != oldOne || message != null) {
+                    Instant stateSince = newState == oldOne ? currentState.getStateSince() : Instant.now();
+                    currentState = new State(newState, stateSince, message);
                     lockObject.notifyAll();
                 }
             }

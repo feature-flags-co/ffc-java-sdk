@@ -34,6 +34,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static co.featureflags.server.Status.DATA_INVALID_ERROR;
+import static co.featureflags.server.Status.NETWORK_ERROR;
+import static co.featureflags.server.Status.REQUEST_INVALID_ERROR;
+import static co.featureflags.server.Status.RUNTIME_ERROR;
+import static co.featureflags.server.Status.UNKNOWN_CLOSE_CODE;
+import static co.featureflags.server.Status.UNKNOWN_ERROR;
 
 final class Streaming implements UpdateProcessor {
 
@@ -44,6 +49,8 @@ final class Streaming implements UpdateProcessor {
     private final String NORMAL_CLOSE_REASON = "normal close";
     private final Integer INVALID_REQUEST_CLOSE = 4003;
     private final String INVALID_REQUEST_CLOSE_REASON = "invalid request";
+    private final Integer GOING_AWAY_CLOSE = 1001;
+    private final String JUST_RECONN_REASON_REGISTERED = "reconn";
 
     private final Map<Integer, String> NOT_RECONN_CLOSE_REASON = ImmutableMap.of(NORMAL_CLOSE, NORMAL_CLOSE_REASON, INVALID_REQUEST_CLOSE, INVALID_REQUEST_CLOSE_REASON);
     private final List<Class<? extends Exception>> RECONNECT_EXCEPTIONS = ImmutableList.of(SocketTimeoutException.class, SocketException.class, EOFException.class);
@@ -64,7 +71,6 @@ final class Streaming implements UpdateProcessor {
     private final HttpConfig httpConfig;
     private final Integer maxRetryTimes;
     private final BackoffAndJitterStrategy strategy;
-    private final String streamingURI;
     private final String streamingURL;
 
     private OkHttpClient okHttpClient;
@@ -74,7 +80,6 @@ final class Streaming implements UpdateProcessor {
         this.updator = updator;
         this.basicConfig = config.basicConfig();
         this.httpConfig = config.http();
-        this.streamingURI = streamingURI;
         this.streamingURL = StringUtils.stripEnd(streamingURI, "/").concat(DEFAULT_STREAMING_PATH);
         this.strategy = new BackoffAndJitterStrategy(firstRetryDelay);
         this.maxRetryTimes = (maxRetryTimes == null || maxRetryTimes <= 0) ? Integer.MAX_VALUE : maxRetryTimes;
@@ -85,7 +90,9 @@ final class Streaming implements UpdateProcessor {
     @Override
     public Future<Boolean> start() {
         logger.info("Streaming Starting...");
+        // flags reset to original state
         connCount.set(0);
+        isWSConnected.set(false);
         connect();
         return initFuture;
     }
@@ -115,7 +122,7 @@ final class Streaming implements UpdateProcessor {
 
     private void connect() {
         if (isWSConnected.get()) {
-            logger.error("Streaming WebSocket is Connected");
+            logger.error("Streaming WebSocket is already Connected");
             return;
         }
         int count = connCount.getAndIncrement();
@@ -145,7 +152,7 @@ final class Streaming implements UpdateProcessor {
             logger.info("Streaming WebSocket will reconnect in {} milliseconds", delayInMillis);
             Thread.sleep(delayInMillis);
         } catch (InterruptedException ie) {
-            logger.warn("unexpected interruption");
+            logger.warn("unexpected interruption {}", ie.getMessage());
         } finally {
             connect();
         }
@@ -166,40 +173,46 @@ final class Streaming implements UpdateProcessor {
             Long version = data.getTimestamp();
             Map<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> updatedData = data.toStorageType();
             if (FULL_OPS.equalsIgnoreCase(eventType)) {
-                opOK = updator.init(updatedData, version);
+                boolean fullOK = updator.init(updatedData, version);
+                opOK = fullOK;
             } else if (PATCH_OPS.equalsIgnoreCase(eventType)) {
+                // streaming patch is a real time update
+                // patch data contains only one item in just one category.
+                // no data update is considered as a good operation
+                boolean patchOK = true;
                 for (Map.Entry<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> entry : updatedData.entrySet()) {
                     DataStoreTypes.Category category = entry.getKey();
                     for (Map.Entry<String, DataStoreTypes.Item> keyItem : entry.getValue().entrySet()) {
-                        opOK = updator.upsert(category, keyItem.getKey(), keyItem.getValue(), version);
-                        if (!opOK) {
-                            break;
-                        }
+                        patchOK = updator.upsert(category, keyItem.getKey(), keyItem.getValue(), version);
                     }
                 }
+                opOK = patchOK;
             }
             if (opOK && !initialized.getAndSet(true)) {
                 initFuture.complete(true);
             }
             if (opOK) {
-                logger.info("Data Sync is well done");
+                logger.info("processing data is well done");
                 updator.updateStatus(Status.StateType.OK, null);
             } else {
-                webSocket.cancel();
+                // reconnect to server to get back data after data storage failed
+                // the reason is gathered by DataUpdator
+                // close code 1001 means peer going away
+                webSocket.close(GOING_AWAY_CLOSE, JUST_RECONN_REASON_REGISTERED);
             }
         };
     }
 
     private final class DefaultWebSocketListener extends StreamingWebSocketListener {
+        // this callback method may throw a JsonParseException
+        // if received data is invalid
         @Override
         public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
             logger.info("Streaming WebSocket is processing data");
             DataModel.All allData = JsonHelper.deserialize(text, DataModel.All.class);
             DataModel.Data data = allData.data();
-            if (data != null && data.isValidated()) {
+            if (data != null && data.isProcessData()) {
                 storageUpdateExecutor.execute(processDate(data));
-            } else {
-                throw new JsonParseException(DATA_INVALID_ERROR);
             }
         }
 
@@ -223,6 +236,8 @@ final class Streaming implements UpdateProcessor {
         @Override
         public final void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
             boolean isReconn = false;
+            // close conn if the code is 1000 or 4003
+            // any other close code will cause a reconnecting to server
             String message = NOT_RECONN_CLOSE_REASON.get(code);
             if (message == null) {
                 isReconn = true;
@@ -232,12 +247,17 @@ final class Streaming implements UpdateProcessor {
             isWSConnected.compareAndSet(true, false);
 
             if (isReconn) {
-                updator.updateStatus(Status.StateType.INTERRUPTED, reason);
+                // if code is not 1001, it's a unknown close code received by server
+                if (!JUST_RECONN_REASON_REGISTERED.equals(reason)) {
+                    updator.updateStatus(Status.StateType.INTERRUPTED, Status.ErrorInfo.of(UNKNOWN_CLOSE_CODE, reason));
+                }
                 reconnect(false);
             } else {
+                // authorization error
                 if (code == INVALID_REQUEST_CLOSE) {
-                    updator.updateStatus(Status.StateType.OFF, DATA_INVALID_ERROR);
+                    updator.updateStatus(Status.StateType.OFF, Status.ErrorInfo.of(REQUEST_INVALID_ERROR, reason));
                 } else {
+                    // normal close by client peer
                     updator.updateStatus(Status.StateType.OFF, null);
                 }
             }
@@ -249,25 +269,34 @@ final class Streaming implements UpdateProcessor {
             isWSConnected.compareAndSet(true, false);
             boolean forceToUseMaxRetryDelay = false;
             boolean isReconn = false;
+            String errorType = null;
+            Class<? extends Throwable> tClass = t.getClass();
+            // runtime exception restart except JsonParseException
             if (t instanceof RuntimeException) {
-                isReconn = true;
+                isReconn = tClass != JsonParseException.class;
+                errorType = isReconn ? RUNTIME_ERROR : DATA_INVALID_ERROR;
             } else {
-                Class<? extends Throwable> tClass = t.getClass();
+                // restart a cause of network error
                 for (Class<? extends Exception> cls : RECONNECT_EXCEPTIONS) {
                     if (tClass == cls) {
                         isReconn = true;
+                        errorType = NETWORK_ERROR;
                         // maybe kicked off by server side
                         if (tClass == EOFException.class) {
                             forceToUseMaxRetryDelay = true;
                         }
                     }
                 }
+                if (errorType == null) {
+                    errorType = UNKNOWN_ERROR;
+                }
             }
+            Status.ErrorInfo errorInfo = Status.ErrorInfo.of(errorType, t.getMessage());
             if (isReconn) {
-                updator.updateStatus(Status.StateType.INTERRUPTED, t.getMessage());
+                updator.updateStatus(Status.StateType.INTERRUPTED, errorInfo);
                 reconnect(forceToUseMaxRetryDelay);
             } else {
-                updator.updateStatus(Status.StateType.OFF, t.getMessage());
+                updator.updateStatus(Status.StateType.OFF, errorInfo);
             }
         }
 
