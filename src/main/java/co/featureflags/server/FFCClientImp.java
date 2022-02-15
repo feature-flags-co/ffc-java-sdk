@@ -41,12 +41,12 @@ public final class FFCClientImp implements FFCClient {
 
     /**
      * Creates a new client to connect to feature-flag.co with a specified configuration.
-     * <p></p>
+     * <p>
      * Applications SHOULD instantiate a single instance for the lifetime of the application. In
      * the case where an application needs to evaluate feature flags from different environments,
      * you may create multiple clients, but they should still be retained
      * for the lifetime of the application rather than created per request or per thread.
-     * <p></p>
+     * <p>
      * The client try to connect to feature-flag.co as soon as the constructor is called. The constructor will return
      * when it successfully connects, or when the timeout (15 seconds) expires, whichever comes first.
      * If it has not succeeded in connecting when the timeout elapses, you will receive the client in an uninitialized state
@@ -63,14 +63,14 @@ public final class FFCClientImp implements FFCClient {
 
     /**
      * Creates a new client to connect to feature-flag.co with a specified configuration.
-     * <p></p>
+     * <p>
      * This constructor can be used to configure advanced SDK features; see {@link FFCConfig.Builder}.
-     * <p></p>
+     * <p>
      * Applications SHOULD instantiate a single instance for the lifetime of the application. In
      * the case where an application needs to evaluate feature flags from different environments,
      * you may create multiple clients, but they should still be retained
      * for the lifetime of the application rather than created per request or per thread.
-     * <p></p>
+     * <p>
      * Note that unless client is configured in offline mode{@link FFCConfig.Builder#offline(boolean)} or set by
      * {@link Factory#nullUpdateProcessorFactory()}, this client try to connect to feature-flag.co
      * as soon as the constructor is called. The constructor will return when it successfully
@@ -79,7 +79,6 @@ public final class FFCClientImp implements FFCClient {
      * elapses, you will receive the client in an uninitialized state where feature flags will return
      * default values; it will still continue trying to connect in the background unless there has been an {@link java.net.ProtocolException}
      * or you close the client{@link #close()}. You can detect whether initialization has succeeded by calling {@link #isInitialized()}.
-     * <p></p>
      * <p>
      * If you prefer to have the constructor return immediately, and then wait for initialization to finish
      * at some other point, you can use {@link #getDataUpdateStatusProvider()} as follows:
@@ -95,7 +94,6 @@ public final class FFCClientImp implements FFCClient {
      *         // do whatever is appropriate if initialization has timed out
      *     }
      * </code></pre>
-     * <p></>
      * <p>
      * This constructor can throw unchecked exceptions if it is immediately apparent that
      * the SDK cannot work with these parameters. In fact, if the env secret is not valid,

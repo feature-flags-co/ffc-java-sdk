@@ -67,10 +67,10 @@ public abstract class Status {
 
     /**
      * Interface that {@link co.featureflags.server.exterior.UpdateProcessor} implementation will use to push data into the SDK.
-     * <p></p>
+     * <p>
      * The {@link co.featureflags.server.exterior.UpdateProcessor} interacts with this object, rather than manipulating the {@link DataStorage} directly,
      * so that the SDK can perform any other necessary operations that should perform around data updating.
-     * <p></p>
+     * <p>
      * if you overwrite the our default Update Processor,you should integrate{@link DataUpdator} to push data
      * and maintain the processor status in your own code
      */

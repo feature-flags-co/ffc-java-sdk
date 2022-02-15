@@ -22,7 +22,7 @@ public interface FFCClient extends Closeable {
 
     /**
      * Calculates the value of a feature flag for a given user.
-     * <p></p>
+     * <p>
      *
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
@@ -33,7 +33,7 @@ public interface FFCClient extends Closeable {
 
     /**
      * Calculates the value of a feature flag for a given user.
-     * <p></p>
+     * <p>
      *
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
@@ -44,7 +44,7 @@ public interface FFCClient extends Closeable {
 
     /**
      * Calculates the double value of a feature flag for a given user.
-     * <p></p>
+     * <p>
      *
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
@@ -56,7 +56,7 @@ public interface FFCClient extends Closeable {
     /**
      * Calculates the integer value of a feature flag for a given user.
      * Note that If the variation has a numeric value, but not an integer, it is rounded toward zero(DOWN mode)
-     * <p></p>
+     * <p>
      *
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
@@ -68,7 +68,7 @@ public interface FFCClient extends Closeable {
     /**
      * Calculates the long value of a feature flag for a given user.
      * Note that If the variation has a numeric value, but not along value, it is rounded toward zero(DOWN mode)
-     * <p></p>
+     * <p>
      *
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
