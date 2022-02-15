@@ -11,7 +11,6 @@ public abstract class StreamingBuilder implements UpdateProcessorFactory {
     protected String streamingURI;
     protected Duration firstRetryDelay;
     protected Integer maxRetryTimes = 0;
-    boolean testMode = false;
 
     public StreamingBuilder newStreamingURI(String uri) {
         this.streamingURI = StringUtils.isBlank(uri) ? DEFAULT_STREAMING_URI : uri;
@@ -26,11 +25,6 @@ public abstract class StreamingBuilder implements UpdateProcessorFactory {
 
     public StreamingBuilder maxRetryTimes(Integer maxRetryTimes) {
         this.maxRetryTimes = maxRetryTimes;
-        return this;
-    }
-
-    StreamingBuilder testMode(boolean testMode) {
-        this.testMode = testMode;
         return this;
     }
 }

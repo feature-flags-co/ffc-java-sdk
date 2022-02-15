@@ -40,7 +40,7 @@ public abstract class Utils {
     }
 
     /**
-     * See {@linktourl https://stackoverflow.com/questions/35554380/okhttpclient-proxy-authentication-how-to}
+     * See <a href="https://stackoverflow.com/questions/35554380/okhttpclient-proxy-authentication-how-to">proxy authentication</a>
      *
      * @param username username
      * @param password password

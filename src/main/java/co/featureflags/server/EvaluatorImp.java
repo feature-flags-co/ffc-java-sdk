@@ -65,7 +65,7 @@ final class EvaluatorImp extends Evaluator {
                         DataModel.FeatureFlag preFlag = this.flagGetter.get(preFlagId);
                         if (preFlag == null) {
                             String preFlagKey = FeatureFlagKeyExtension.unpackFeatureFlagId(preFlagId, 4);
-                            logger.warn(String.format("prerequisite flag %s not found", preFlagKey));
+                            logger.warn("prerequisite flag {} not found", preFlagKey);
                             return true;
                         }
                         EvalResult er = matchUserVariation(preFlag, user);

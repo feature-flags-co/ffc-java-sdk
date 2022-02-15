@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Type;
 
+import static co.featureflags.server.Status.DATA_INVALID_ERROR;
+
 abstract class JsonHelper {
     private static final Gson gson = new GsonBuilder()
             .setPrettyPrinting()
@@ -29,7 +31,7 @@ abstract class JsonHelper {
         try {
             return gson.fromJson(json, objectClass);
         } catch (Exception e) {
-            throw new JsonParseException(e);
+            throw new JsonParseException(DATA_INVALID_ERROR, e);
         }
     }
 
@@ -37,7 +39,7 @@ abstract class JsonHelper {
         try {
             return gson.fromJson(json, type);
         } catch (Exception e) {
-            throw new JsonParseException(e);
+            throw new JsonParseException(DATA_INVALID_ERROR, e);
         }
     }
 
@@ -45,7 +47,7 @@ abstract class JsonHelper {
         try {
             return gson.fromJson(reader, objectClass);
         } catch (Exception e) {
-            throw new JsonParseException(e);
+            throw new JsonParseException(DATA_INVALID_ERROR, e);
         }
     }
 
@@ -53,7 +55,7 @@ abstract class JsonHelper {
         try {
             return gson.fromJson(reader, type);
         } catch (Exception e) {
-            throw new JsonParseException(e);
+            throw new JsonParseException(DATA_INVALID_ERROR, e);
         }
     }
 

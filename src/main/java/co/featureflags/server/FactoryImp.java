@@ -35,11 +35,11 @@ abstract class FactoryImp {
 
     static final class StreamingBuilderImpl extends StreamingBuilder {
         @Override
-        public UpdateProcessor createUpdateProcessor(Context config, DataStorage dataStorage) {
+        public UpdateProcessor createUpdateProcessor(Context config, Status.DataUpdator dataUpdator) {
             Loggers.UPDATE_PROCESSOR.info("Choose Streaming Update Processor");
             streamingURI = streamingURI == null ? DEFAULT_STREAMING_URI : streamingURI;
             firstRetryDelay = firstRetryDelay == null ? DEFAULT_FIRST_RETRY_DURATION : firstRetryDelay;
-            return new Streaming(dataStorage, config, streamingURI, firstRetryDelay, maxRetryTimes, testMode);
+            return new Streaming(dataUpdator, config, streamingURI, firstRetryDelay, maxRetryTimes);
         }
     }
 
@@ -108,7 +108,7 @@ abstract class FactoryImp {
         static final NullUpdateProcessorFactory SINGLETON = new NullUpdateProcessorFactory();
 
         @Override
-        public UpdateProcessor createUpdateProcessor(Context config, DataStorage dataStorage) {
+        public UpdateProcessor createUpdateProcessor(Context config, Status.DataUpdator dataUpdator) {
             if (config.basicConfig().isOffline()) {
                 Loggers.CLIENT.info("SDK is in offline mode");
             } else {

@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 /**
@@ -14,7 +15,7 @@ import java.util.stream.Collectors;
  */
 
 final class InMemoryDataStorage implements DataStorage {
-    private final Object writeLock = new Object();
+    private final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
     private volatile boolean initialized = false;
     private volatile Map<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> allData = ImmutableMap.of();
     private volatile long version = 0;
@@ -29,31 +30,45 @@ final class InMemoryDataStorage implements DataStorage {
             return;
         }
 
-        synchronized (writeLock) {
+        rwLock.writeLock().lock();
+        try {
             this.allData = ImmutableMap.copyOf(allData);
             initialized = true;
             this.version = version;
             Loggers.DATA_STORAGE.debug("Data storage initialized");
+        } finally {
+            rwLock.writeLock().unlock();
         }
+
     }
 
     @Override
     public DataStoreTypes.Item get(DataStoreTypes.Category category, String key) {
-        Map<String, DataStoreTypes.Item> items = allData.get(category);
-        if (items == null) return null;
-        DataStoreTypes.Item item = items.get(key);
-        if (item == null || item.item().isArchived()) return null;
-        return item;
+        rwLock.readLock().lock();
+        try {
+            Map<String, DataStoreTypes.Item> items = allData.get(category);
+            if (items == null) return null;
+            DataStoreTypes.Item item = items.get(key);
+            if (item == null || item.item().isArchived()) return null;
+            return item;
+        } finally {
+            rwLock.readLock().unlock();
+        }
+
     }
 
     @Override
     public Map<String, DataStoreTypes.Item> getAll(DataStoreTypes.Category category) {
-        Map<String, DataStoreTypes.Item> items = allData.get(category);
-        if (items == null) return null;
-        Map<String, DataStoreTypes.Item> map = items.entrySet().stream()
-                .filter(entry -> !entry.getValue().item().isArchived())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        return ImmutableMap.copyOf(map);
+        rwLock.readLock().lock();
+        try {
+            Map<String, DataStoreTypes.Item> items = allData.get(category);
+            if (items == null) return null;
+            Map<String, DataStoreTypes.Item> map = items.entrySet().stream().filter(entry -> !entry.getValue().item().isArchived()).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            return ImmutableMap.copyOf(map);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+
     }
 
 
@@ -62,7 +77,8 @@ final class InMemoryDataStorage implements DataStorage {
         if (version == null || this.version >= version || item == null || item.item() == null) {
             return false;
         }
-        synchronized (writeLock) {
+        rwLock.writeLock().lock();
+        try {
             Map<String, DataStoreTypes.Item> oldItems = allData.get(category);
             DataStoreTypes.Item oldItem = null;
             if (oldItems != null) {
@@ -96,23 +112,35 @@ final class InMemoryDataStorage implements DataStorage {
             allData = newData.build();
             this.version = version;
             if (!initialized) initialized = true;
-            Loggers.DATA_STORAGE.debug(String.format("upsert item %s into storage", key));
+            Loggers.DATA_STORAGE.debug("upsert item {} into storage", key);
+            return true;
+        } finally {
+            rwLock.writeLock().unlock();
         }
-        return true;
+
     }
 
     @Override
     public boolean isInitialized() {
-        return initialized;
+        rwLock.readLock().lock();
+        try {
+            return initialized;
+        } finally {
+            rwLock.readLock().unlock();
+        }
     }
 
     @Override
     public long getVersion() {
-        return version;
+        rwLock.readLock().lock();
+        try {
+            return version;
+        } finally {
+            rwLock.readLock().unlock();
+        }
     }
 
     @Override
     public void close() {
-        initialized = false;
     }
 }
