@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -38,6 +39,7 @@ public final class FFCClientImp implements FFCClient {
     private final Evaluator evaluator;
     private final UpdateProcessor updateProcessor;
     private final Status.DataUpdateStatusProvider dataUpdateStatusProvider;
+    private final Status.DataUpdator dataUpdator;
 
     /**
      * Creates a new client to connect to feature-flag.co with a specified configuration.
@@ -72,7 +74,7 @@ public final class FFCClientImp implements FFCClient {
      * for the lifetime of the application rather than created per request or per thread.
      * <p>
      * Note that unless client is configured in offline mode{@link FFCConfig.Builder#offline(boolean)} or set by
-     * {@link Factory#nullUpdateProcessorFactory()}, this client try to connect to feature-flag.co
+     * {@link Factory#externalOnlyDataUpdate()}, this client try to connect to feature-flag.co
      * as soon as the constructor is called. The constructor will return when it successfully
      * connects, or when the timeout set by {@link FFCConfig.Builder#startWaitTime(java.time.Duration)} (default:
      * 15 seconds) expires, whichever comes first. If it has not succeeded in connecting when the timeout
@@ -118,7 +120,8 @@ public final class FFCClientImp implements FFCClient {
             return item == null ? null : (DataModel.FeatureFlag) item.item();
         };
         this.evaluator = new EvaluatorImp(flagGetter);
-        Status.DataUpdatorImpl dataUpdatorImpl = new Status.DataUpdatorImpl(this.storage, config.isOffline());
+        Status.DataUpdatorImpl dataUpdatorImpl = new Status.DataUpdatorImpl(this.storage);
+        this.dataUpdator = dataUpdatorImpl;
         this.updateProcessor = config.getUpdateProcessorFactory().createUpdateProcessor(context, dataUpdatorImpl);
         this.dataUpdateStatusProvider = new Status.DataUpdateStatusProviderImpl(dataUpdatorImpl);
 
@@ -134,7 +137,7 @@ public final class FFCClientImp implements FFCClient {
                     logger.info("JAVA SDK Client just return default variation");
                 }
                 boolean initResult = initFuture.get(startWait.toMillis(), TimeUnit.MILLISECONDS);
-                if (initResult) {
+                if (initResult && !offline) {
                     logger.info("JAVA SDK Client initialization completed");
                 }
             } catch (TimeoutException e) {
@@ -143,7 +146,7 @@ public final class FFCClientImp implements FFCClient {
                 logger.error("Exception encountered waiting for data update", e);
             }
 
-            if (!this.storage.isInitialized()) {
+            if (!this.storage.isInitialized() && !offline) {
                 logger.info("JAVA SDK Client was not successfully initialized");
             }
         }
@@ -252,5 +255,20 @@ public final class FFCClientImp implements FFCClient {
     @Override
     public Status.DataUpdateStatusProvider getDataUpdateStatusProvider() {
         return dataUpdateStatusProvider;
+    }
+
+    @Override
+    public boolean initializeFromExternalJson(String json) {
+        DataModel.Data data = DataModel.BuildData(json);
+        if (data != null && data.isProcessData()) {
+            Long version = data.getTimestamp();
+            Map<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> allData = data.toStorageType();
+            boolean res = dataUpdator.init(allData, version);
+            if (res) {
+                dataUpdator.updateStatus(Status.StateType.OK, null);
+            }
+            return res;
+        }
+        return false;
     }
 }

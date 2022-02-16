@@ -49,7 +49,7 @@ public class FFCConfig {
         this.startWaitTime = builder.startWaitTime == null ? DEFAULT_START_WAIT_TIME : builder.startWaitTime;
         if (builder.offline) {
             Loggers.CLIENT.info("JAVA SDK Client is in offline mode");
-            this.updateProcessorFactory = Factory.nullUpdateProcessorFactory();
+            this.updateProcessorFactory = Factory.externalOnlyDataUpdate();
         } else {
             this.updateProcessorFactory =
                     builder.updateProcessorFactory == null ? Factory.streamingBuilder() : builder.updateProcessorFactory;

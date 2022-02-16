@@ -67,10 +67,7 @@ public abstract class Status {
 
         @Override
         public String toString() {
-            return MoreObjects.toStringHelper(this)
-                    .add("errorType", errorType)
-                    .add("message", message)
-                    .toString();
+            return MoreObjects.toStringHelper(this).add("errorType", errorType).add("message", message).toString();
         }
     }
 
@@ -105,10 +102,7 @@ public abstract class Status {
             return new State(StateType.INTERRUPTED, Instant.now(), ErrorInfo.of(errorType, message));
         }
 
-        public static State of(StateType stateType,
-                               Instant stateSince,
-                               String errorType,
-                               String message) {
+        public static State of(StateType stateType, Instant stateSince, String errorType, String message) {
             return new State(stateType, stateSince, ErrorInfo.of(errorType, message));
         }
 
@@ -126,11 +120,7 @@ public abstract class Status {
 
         @Override
         public String toString() {
-            return MoreObjects.toStringHelper(this)
-                    .add("stateType", stateType)
-                    .add("stateSince", stateSince)
-                    .add("info", info)
-                    .toString();
+            return MoreObjects.toStringHelper(this).add("stateType", stateType).add("stateSince", stateSince).add("info", info).toString();
         }
 
         @Override
@@ -183,7 +173,7 @@ public abstract class Status {
         private final Object lockObject = new Object();
         // todo FlagChangeNotifier, StatusNotifier, ErrorAnalyser
 
-        public DataUpdatorImpl(DataStorage storage, boolean offline) {
+        public DataUpdatorImpl(DataStorage storage) {
             this.storage = storage;
             this.currentState = State.initializingState();
         }

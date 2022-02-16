@@ -16,6 +16,11 @@ public abstract class DataModel {
     private DataModel() {
     }
 
+    static DataModel.Data BuildData(String json) {
+        DataModel.All allData = JsonHelper.deserialize(json, DataModel.All.class);
+        return allData.data();
+    }
+
     public interface TimestampData {
         Integer FFC_FEATURE_FLAG = 100;
         Integer FFC_ARCHIVED_VDATA = 200;
@@ -106,7 +111,7 @@ public abstract class DataModel {
         private final List<FeatureFlag> featureFlags;
         private Long timestamp;
 
-        public Data(String eventType, List<FeatureFlag> featureFlags) {
+        Data(String eventType, List<FeatureFlag> featureFlags) {
             this.eventType = eventType;
             this.featureFlags = featureFlags;
         }
@@ -142,7 +147,6 @@ public abstract class DataModel {
             }
             return ImmutableMap.of(DataStoreTypes.FEATURES, newItems.build());
         }
-
     }
 
     static class FeatureFlag implements TimestampData {

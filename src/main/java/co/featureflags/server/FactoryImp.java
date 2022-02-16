@@ -98,8 +98,7 @@ abstract class FactoryImp {
         }
 
         @Override
-        public void close() throws IOException {
-
+        public void close() {
         }
     }
 
@@ -114,13 +113,17 @@ abstract class FactoryImp {
             } else {
                 Loggers.CLIENT.info("SDK won't connect to feature-flag.co");
             }
-            return NullUpdateProcessor.SINGLETON;
+            return new NullUpdateProcessor(dataUpdator);
         }
     }
 
     private static final class NullUpdateProcessor implements UpdateProcessor {
 
-        static final NullUpdateProcessor SINGLETON = new NullUpdateProcessor();
+        private final Status.DataUpdator dataUpdator;
+
+        NullUpdateProcessor(Status.DataUpdator dataUpdator) {
+            this.dataUpdator = dataUpdator;
+        }
 
         @Override
         public Future<Boolean> start() {
@@ -129,7 +132,7 @@ abstract class FactoryImp {
 
         @Override
         public boolean isInitialized() {
-            return true;
+            return dataUpdator.storageInitialized();
         }
 
         @Override

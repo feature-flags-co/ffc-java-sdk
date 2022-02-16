@@ -1,9 +1,7 @@
 package co.featureflags.server;
 
 import co.featureflags.server.exterior.DataStorageFactory;
-import co.featureflags.server.exterior.HttpConfigFactory;
 import co.featureflags.server.exterior.HttpConfigurationBuilder;
-import co.featureflags.server.exterior.UpdateProcessor;
 import co.featureflags.server.exterior.UpdateProcessorFactory;
 
 public abstract class Factory {
@@ -28,7 +26,7 @@ public abstract class Factory {
         return FactoryImp.NullDataStorageFactory.SINGLETON;
     }
 
-    public static UpdateProcessorFactory nullUpdateProcessorFactory() {
+    public static UpdateProcessorFactory externalOnlyDataUpdate() {
         return FactoryImp.NullUpdateProcessorFactory.SINGLETON;
     }
 
