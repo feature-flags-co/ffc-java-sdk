@@ -83,7 +83,7 @@ public abstract class Status {
         }
 
         public static State initializingState() {
-            return new State(StateType.OK, Instant.now(), null);
+            return new State(StateType.INITIALIZING, Instant.now(), null);
         }
 
         public static State OKState() {

@@ -16,11 +16,6 @@ public abstract class DataModel {
     private DataModel() {
     }
 
-    static DataModel.Data BuildData(String json) {
-        DataModel.All allData = JsonHelper.deserialize(json, DataModel.All.class);
-        return allData.data();
-    }
-
     public interface TimestampData {
         Integer FFC_FEATURE_FLAG = 100;
         Integer FFC_ARCHIVED_VDATA = 200;
@@ -99,6 +94,11 @@ public abstract class DataModel {
         public String getMessageType() {
             return messageType;
         }
+
+        boolean isProcessData() {
+            return "data-sync".equalsIgnoreCase(messageType) && data != null
+                    && ("full".equalsIgnoreCase(data.eventType) || "patch".equalsIgnoreCase(data.eventType));
+        }
     }
 
     /**
@@ -116,7 +116,6 @@ public abstract class DataModel {
             this.featureFlags = featureFlags;
         }
 
-
         @Override
         public void afterDeserialization() {
             timestamp = (featureFlags != null)
@@ -133,10 +132,6 @@ public abstract class DataModel {
 
         public Long getTimestamp() {
             return timestamp;
-        }
-
-        boolean isProcessData() {
-            return eventType != null && (eventType.equalsIgnoreCase("full") || eventType.equalsIgnoreCase("patch"));
         }
 
         Map<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> toStorageType() {

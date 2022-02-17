@@ -4,23 +4,22 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.StringUtils;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public final class FFCUser {
+public final class FFCUser implements Serializable {
 
     private final static Function<FFCUser, String> USERNAME = u -> u.userName;
     private final static Function<FFCUser, String> EMAIL = u -> u.email;
     private final static Function<FFCUser, String> KEY = u -> u.key;
     private final static Function<FFCUser, String> COUNTRY = u -> u.country;
 
-    private final static Map<String, Function<FFCUser, String>> BUILTINS = ImmutableMap.of("Name", USERNAME,
-            "KeyId", KEY,
-            "Country", COUNTRY,
-            "Email", EMAIL);
+    private final static Map<String, Function<FFCUser, String>> BUILTINS = ImmutableMap.of("Name", USERNAME, "KeyId", KEY, "Country", COUNTRY, "Email", EMAIL);
 
 
     private final String userName;
@@ -29,6 +28,7 @@ public final class FFCUser {
     private final String country;
     //TODO property for generic type
     private final Map<String, String> custom;
+
 
     private FFCUser(Builder builder) {
         String key = builder.key;
@@ -75,16 +75,22 @@ public final class FFCUser {
     }
 
     @Override
-    public String toString() {
-        return MoreObjects.toStringHelper(this)
-                .add("userName", userName)
-                .add("email", email)
-                .add("key", key)
-                .add("country", country)
-                .add("custom", custom)
-                .toString();
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        FFCUser ffcUser = (FFCUser) o;
+        return Objects.equals(userName, ffcUser.userName) && Objects.equals(email, ffcUser.email) && Objects.equals(key, ffcUser.key) && Objects.equals(country, ffcUser.country) && Objects.equals(custom, ffcUser.custom);
     }
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(userName, email, key, country, custom);
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this).add("userName", userName).add("email", email).add("key", key).add("country", country).add("custom", custom).toString();
+    }
 
     public static class Builder {
         private String userName;

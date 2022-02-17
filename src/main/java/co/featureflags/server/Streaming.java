@@ -27,9 +27,10 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -45,12 +46,13 @@ final class Streaming implements UpdateProcessor {
     //constants
     private static final String FULL_OPS = "full";
     private static final String PATCH_OPS = "patch";
-    private final Integer NORMAL_CLOSE = 1000;
-    private final String NORMAL_CLOSE_REASON = "normal close";
-    private final Integer INVALID_REQUEST_CLOSE = 4003;
-    private final String INVALID_REQUEST_CLOSE_REASON = "invalid request";
-    private final Integer GOING_AWAY_CLOSE = 1001;
-    private final String JUST_RECONN_REASON_REGISTERED = "reconn";
+    private static final Integer NORMAL_CLOSE = 1000;
+    private static final String NORMAL_CLOSE_REASON = "normal close";
+    private static final Integer INVALID_REQUEST_CLOSE = 4003;
+    private static final String INVALID_REQUEST_CLOSE_REASON = "invalid request";
+    private static final Integer GOING_AWAY_CLOSE = 1001;
+    private static final String JUST_RECONN_REASON_REGISTERED = "reconn";
+    private static final int MAX_QUEUE_SIZE = 512;
 
     private final Map<Integer, String> NOT_RECONN_CLOSE_REASON = ImmutableMap.of(NORMAL_CLOSE, NORMAL_CLOSE_REASON, INVALID_REQUEST_CLOSE, INVALID_REQUEST_CLOSE_REASON);
     private final List<Class<? extends Exception>> RECONNECT_EXCEPTIONS = ImmutableList.of(SocketTimeoutException.class, SocketException.class, EOFException.class);
@@ -65,7 +67,7 @@ final class Streaming implements UpdateProcessor {
     private final AtomicInteger connCount = new AtomicInteger(0);
     private final CompletableFuture<Boolean> initFuture = new CompletableFuture<>();
     private final StreamingWebSocketListener listener = new DefaultWebSocketListener();
-    private final ExecutorService storageUpdateExecutor;
+    private final ThreadPoolExecutor storageUpdateExecutor;
     private final Status.DataUpdator updator;
     private final BasicConfig basicConfig;
     private final HttpConfig httpConfig;
@@ -84,7 +86,13 @@ final class Streaming implements UpdateProcessor {
         this.strategy = new BackoffAndJitterStrategy(firstRetryDelay);
         this.maxRetryTimes = (maxRetryTimes == null || maxRetryTimes <= 0) ? Integer.MAX_VALUE : maxRetryTimes;
 
-        this.storageUpdateExecutor = Executors.newSingleThreadExecutor(Utils.createThreadFactory("workerthread-%d", true));
+        //be sure of FIFO;
+        this.storageUpdateExecutor = new ThreadPoolExecutor(1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(MAX_QUEUE_SIZE),
+                Utils.createThreadFactory("workerthread-%d", true));
     }
 
     @Override
@@ -106,15 +114,11 @@ final class Streaming implements UpdateProcessor {
     public void close() {
         logger.info("Streaming is stopping...");
         if (okHttpClient != null && webSocket != null) {
-            try {
-                webSocket.close(NORMAL_CLOSE, NORMAL_CLOSE_REASON);
-            } finally {
-                clearExcutor();
-            }
+            webSocket.close(NORMAL_CLOSE, NORMAL_CLOSE_REASON);
         }
     }
 
-    private void clearExcutor() {
+    private void clearExecutor() {
         storageUpdateExecutor.shutdown();
         okHttpClient.dispatcher().executorService().shutdown();
         okHttpClient.connectionPool().evictAll();
@@ -209,9 +213,9 @@ final class Streaming implements UpdateProcessor {
         @Override
         public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
             logger.info("Streaming WebSocket is processing data");
-            DataModel.Data data = DataModel.BuildData(text);
-            if (data != null && data.isProcessData()) {
-                storageUpdateExecutor.execute(processDate(data));
+            DataModel.All all = JsonHelper.deserialize(text, DataModel.All.class);
+            if (all.isProcessData()) {
+                storageUpdateExecutor.execute(processDate(all.data()));
             }
         }
 
@@ -259,6 +263,8 @@ final class Streaming implements UpdateProcessor {
                     // normal close by client peer
                     updator.updateStatus(Status.StateType.OFF, null);
                 }
+                // clean up thread and conn pool
+                clearExecutor();
             }
         }
 
@@ -296,6 +302,8 @@ final class Streaming implements UpdateProcessor {
                 reconnect(forceToUseMaxRetryDelay);
             } else {
                 updator.updateStatus(Status.StateType.OFF, errorInfo);
+                // clean up thread and conn pool
+                clearExecutor();
             }
         }
 
