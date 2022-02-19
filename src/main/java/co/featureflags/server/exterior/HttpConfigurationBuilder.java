@@ -1,5 +1,6 @@
 package co.featureflags.server.exterior;
 
+import co.featureflags.server.Utils;
 import okhttp3.Authenticator;
 
 import javax.net.SocketFactory;

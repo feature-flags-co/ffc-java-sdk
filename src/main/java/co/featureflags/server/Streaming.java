@@ -6,7 +6,6 @@ import co.featureflags.server.exterior.DataStoreTypes;
 import co.featureflags.server.exterior.HttpConfig;
 import co.featureflags.server.exterior.JsonParseException;
 import co.featureflags.server.exterior.UpdateProcessor;
-import co.featureflags.server.exterior.Utils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import okhttp3.Headers;
@@ -26,9 +25,11 @@ import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -52,14 +53,14 @@ final class Streaming implements UpdateProcessor {
     private static final String INVALID_REQUEST_CLOSE_REASON = "invalid request";
     private static final Integer GOING_AWAY_CLOSE = 1001;
     private static final String JUST_RECONN_REASON_REGISTERED = "reconn";
-    private static final int MAX_QUEUE_SIZE = 512;
-
-    private final Map<Integer, String> NOT_RECONN_CLOSE_REASON = ImmutableMap.of(NORMAL_CLOSE, NORMAL_CLOSE_REASON, INVALID_REQUEST_CLOSE, INVALID_REQUEST_CLOSE_REASON);
-    private final List<Class<? extends Exception>> RECONNECT_EXCEPTIONS = ImmutableList.of(SocketTimeoutException.class, SocketException.class, EOFException.class);
-    private final Duration PING_INTERVAL = Duration.ofSeconds(30);
+    private static final int MAX_QUEUE_SIZE = 20;
+    private static final Duration PING_INTERVAL = Duration.ofSeconds(20);
+    private static final Duration AWAIT_TERMINATION = Duration.ofSeconds(2);
     private static final String DEFAULT_STREAMING_PATH = "/streaming";
     private static final String AUTH_PARAMS = "?token=%s&type=server";
-    private final Logger logger = Loggers.UPDATE_PROCESSOR;
+    private static final Map<Integer, String> NOT_RECONN_CLOSE_REASON = ImmutableMap.of(NORMAL_CLOSE, NORMAL_CLOSE_REASON, INVALID_REQUEST_CLOSE, INVALID_REQUEST_CLOSE_REASON);
+    private static final List<Class<? extends Exception>> RECONNECT_EXCEPTIONS = ImmutableList.of(SocketTimeoutException.class, SocketException.class, EOFException.class);
+    private static final Logger logger = Loggers.UPDATE_PROCESSOR;
 
     // final viariables
     private final AtomicBoolean initialized = new AtomicBoolean(false);
@@ -75,7 +76,9 @@ final class Streaming implements UpdateProcessor {
     private final BackoffAndJitterStrategy strategy;
     private final String streamingURL;
 
-    private OkHttpClient okHttpClient;
+    private final Semaphore permits = new Semaphore(MAX_QUEUE_SIZE);
+
+    private final OkHttpClient okHttpClient;
     WebSocket webSocket;
 
     Streaming(Status.DataUpdator updator, Context config, String streamingURI, Duration firstRetryDelay, Integer maxRetryTimes) {
@@ -85,14 +88,18 @@ final class Streaming implements UpdateProcessor {
         this.streamingURL = StringUtils.stripEnd(streamingURI, "/").concat(DEFAULT_STREAMING_PATH);
         this.strategy = new BackoffAndJitterStrategy(firstRetryDelay);
         this.maxRetryTimes = (maxRetryTimes == null || maxRetryTimes <= 0) ? Integer.MAX_VALUE : maxRetryTimes;
+        this.okHttpClient = buildWebOkHttpClient();
 
         //be sure of FIFO;
+        //the data sync is based on timestamp and versioned data
+        // if two many updates exceeds max num of wait queue, run in the main thread
         this.storageUpdateExecutor = new ThreadPoolExecutor(1,
                 1,
                 0L,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(MAX_QUEUE_SIZE),
-                Utils.createThreadFactory("workerthread-%d", true));
+                Utils.createThreadFactory("data-sync-worker-%d", true),
+                new ThreadPoolExecutor.CallerRunsPolicy());
     }
 
     @Override
@@ -113,15 +120,15 @@ final class Streaming implements UpdateProcessor {
     @Override
     public void close() {
         logger.info("Streaming is stopping...");
-        if (okHttpClient != null && webSocket != null) {
+        if (webSocket != null) {
             webSocket.close(NORMAL_CLOSE, NORMAL_CLOSE_REASON);
         }
     }
 
     private void clearExecutor() {
-        storageUpdateExecutor.shutdown();
-        okHttpClient.dispatcher().executorService().shutdown();
-        okHttpClient.connectionPool().evictAll();
+        Loggers.UPDATE_PROCESSOR.debug("streaming processor clean up thread and conn pool");
+        Utils.shutDownThreadPool("Streaming", storageUpdateExecutor, AWAIT_TERMINATION);
+        Utils.shutdownOKHttpClient("Streaming", okHttpClient);
     }
 
     private void connect() {
@@ -134,16 +141,14 @@ final class Streaming implements UpdateProcessor {
             logger.error("Streaming WebSocket have reached max retry");
             return;
         }
-        okHttpClient = buildWebOkHttpClient();
 
         String token = Utils.buildToken(basicConfig.getEnvSecret());
         String url = String.format(streamingURL.concat(AUTH_PARAMS), token);
-
         Headers headers = Utils.headersBuilderFor(httpConfig).build();
-        Request.Builder requestBuilder = new Request.Builder();
-        requestBuilder.headers(headers);
-        requestBuilder.url(url);
-        Request request = requestBuilder.build();
+        Request request = new Request.Builder()
+                .headers(headers)
+                .url(url)
+                .build();
         logger.info("Streaming WebSocket is connecting...");
         strategy.setGoodRunAtNow();
         webSocket = okHttpClient.newWebSocket(request, listener);
@@ -170,7 +175,7 @@ final class Streaming implements UpdateProcessor {
         return builder.build();
     }
 
-    private Runnable processDate(final DataModel.Data data) {
+    private Callable<Boolean> processDateAsync(final DataModel.Data data) {
         return () -> {
             boolean opOK = false;
             String eventType = data.getEventType();
@@ -192,10 +197,10 @@ final class Streaming implements UpdateProcessor {
                 }
                 opOK = patchOK;
             }
-            if (opOK && !initialized.getAndSet(true)) {
-                initFuture.complete(true);
-            }
             if (opOK) {
+                if (initialized.compareAndSet(false, true)) {
+                    initFuture.complete(true);
+                }
                 logger.info("processing data is well done");
                 updator.updateStatus(Status.StateType.OK, null);
             } else {
@@ -204,6 +209,8 @@ final class Streaming implements UpdateProcessor {
                 // close code 1001 means peer going away
                 webSocket.close(GOING_AWAY_CLOSE, JUST_RECONN_REASON_REGISTERED);
             }
+            permits.release();
+            return opOK;
         };
     }
 
@@ -215,7 +222,11 @@ final class Streaming implements UpdateProcessor {
             logger.info("Streaming WebSocket is processing data");
             DataModel.All all = JsonHelper.deserialize(text, DataModel.All.class);
             if (all.isProcessData()) {
-                storageUpdateExecutor.execute(processDate(all.data()));
+                try {
+                    permits.acquire();
+                    storageUpdateExecutor.submit(processDateAsync(all.data()));
+                } catch (InterruptedException ignore) {
+                }
             }
         }
 

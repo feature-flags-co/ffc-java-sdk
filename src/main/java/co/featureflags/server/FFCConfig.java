@@ -2,6 +2,7 @@ package co.featureflags.server;
 
 import co.featureflags.server.exterior.DataStorageFactory;
 import co.featureflags.server.exterior.HttpConfigFactory;
+import co.featureflags.server.exterior.InsightProcessorFactory;
 import co.featureflags.server.exterior.UpdateProcessorFactory;
 
 import java.time.Duration;
@@ -16,6 +17,7 @@ public class FFCConfig {
     private DataStorageFactory dataStorageFactory;
     private UpdateProcessorFactory updateProcessorFactory;
     private HttpConfigFactory httpConfigFactory;
+    private InsightProcessorFactory insightProcessorFactory;
 
     private boolean offline;
     private Duration startWaitTime;
@@ -36,6 +38,10 @@ public class FFCConfig {
         return httpConfigFactory;
     }
 
+    public InsightProcessorFactory getInsightProcessorFactory() {
+        return insightProcessorFactory;
+    }
+
     public boolean isOffline() {
         return offline;
     }
@@ -50,9 +56,12 @@ public class FFCConfig {
         if (builder.offline) {
             Loggers.CLIENT.info("JAVA SDK Client is in offline mode");
             this.updateProcessorFactory = Factory.externalOnlyDataUpdate();
+            this.insightProcessorFactory = Factory.noInsightInOffline();
         } else {
             this.updateProcessorFactory =
                     builder.updateProcessorFactory == null ? Factory.streamingBuilder() : builder.updateProcessorFactory;
+            this.insightProcessorFactory =
+                    builder.insightProcessorFactory == null ? Factory.insightProcessorFactory() : builder.insightProcessorFactory;
         }
         this.dataStorageFactory =
                 builder.dataStorageFactory == null ? Factory.inMemoryDataStorageFactory() : builder.dataStorageFactory;
@@ -65,6 +74,7 @@ public class FFCConfig {
         private DataStorageFactory dataStorageFactory;
         private UpdateProcessorFactory updateProcessorFactory;
         private HttpConfigFactory httpConfigFactory;
+        private InsightProcessorFactory insightProcessorFactory;
         private Duration startWaitTime;
         private boolean offline = false;
 
@@ -84,6 +94,11 @@ public class FFCConfig {
 
         public Builder httpConfigFactory(HttpConfigFactory httpConfigFactory) {
             this.httpConfigFactory = httpConfigFactory;
+            return this;
+        }
+
+        public Builder insightProcessorFactory(InsightProcessorFactory insightProcessorFactory) {
+            this.insightProcessorFactory = insightProcessorFactory;
             return this;
         }
 

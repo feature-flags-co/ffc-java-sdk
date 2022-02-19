@@ -53,7 +53,7 @@ abstract class Evaluator {
         this.flagGetter = flagGetter;
     }
 
-    abstract EvalResult evaluate(DataModel.FeatureFlag flag, FFCUser user);
+    abstract EvalResult evaluate(DataModel.FeatureFlag flag, FFCUser user, InsightTypes.Event event);
 
     @FunctionalInterface
     interface Getter<T extends DataModel.TimestampData> {
@@ -64,24 +64,26 @@ abstract class Evaluator {
         private final Integer index;
         private final String value;
         private final String reason;
+        private final boolean sendToExperiment;
 
 
-        EvalResult(String value, Integer index, String reason) {
+        EvalResult(String value, Integer index, String reason, boolean sendToExperiment) {
             this.value = value;
             this.index = index;
             this.reason = reason;
+            this.sendToExperiment = true;
         }
 
         public static EvalResult error(String reason) {
-            return new EvalResult(null, NO_EVAL_RES, reason);
+            return new EvalResult(null, NO_EVAL_RES, reason, false);
         }
 
         public static EvalResult error(String defaultValue, String reason) {
-            return new EvalResult(defaultValue, NO_EVAL_RES, reason);
+            return new EvalResult(defaultValue, NO_EVAL_RES, reason, false);
         }
 
-        public static EvalResult of(DataModel.VariationOption option, String reason) {
-            return new EvalResult(option.getVariationValue(), option.getLocalId(), reason);
+        public static EvalResult of(DataModel.VariationOption option, String reason, boolean sendToExperiment) {
+            return new EvalResult(option.getVariationValue(), option.getLocalId(), reason, sendToExperiment);
         }
 
         public String getValue() {
@@ -96,6 +98,10 @@ abstract class Evaluator {
             return reason;
         }
 
+        public boolean isSendToExperiment() {
+            return sendToExperiment;
+        }
+
         public boolean checkType(Object defaultValue) {
             if (value == null) {
                 return false;
@@ -106,10 +112,7 @@ abstract class Evaluator {
             if (defaultValue instanceof Boolean && BooleanUtils.toBooleanObject(value) != null) {
                 return true;
             }
-            if ((defaultValue instanceof Integer || defaultValue instanceof Long || defaultValue instanceof Double) && StringUtils.isNumeric(value)) {
-                return true;
-            }
-            return false;
+            return (defaultValue instanceof Integer || defaultValue instanceof Long || defaultValue instanceof Double) && StringUtils.isNumeric(value);
         }
     }
 

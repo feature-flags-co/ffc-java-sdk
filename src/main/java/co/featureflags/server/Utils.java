@@ -1,5 +1,6 @@
-package co.featureflags.server.exterior;
+package co.featureflags.server;
 
+import co.featureflags.server.exterior.HttpConfig;
 import com.google.common.annotations.Beta;
 import com.google.common.collect.ImmutableMap;
 import okhttp3.Authenticator;
@@ -11,11 +12,14 @@ import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public abstract class Utils {
@@ -118,6 +122,32 @@ public abstract class Utils {
         String part4 = timestampCode;
         String part5 = text.substring(start);
         return String.format("%s%s%s%s%s", part1, part2, part3, part4, part5);
+    }
+
+    // https://square.github.io/okhttp/4.x/okhttp/okhttp3/-ok-http-client/#shutdown-isnt-necessary
+    public static void shutdownOKHttpClient(String name, OkHttpClient client) {
+        client.dispatcher().executorService().shutdown();
+        client.connectionPool().evictAll();
+        if (client.cache() != null) {
+            try {
+                client.cache().close();
+            } catch (Exception ignore) {
+            }
+        }
+        Loggers.UTILS.debug("gracefully clean up okhttpclient in {}", name);
+    }
+
+    // https://ld246.com/article/1488023925829
+    public static void shutDownThreadPool(String name, ThreadPoolExecutor pool, Duration timeout) {
+        pool.shutdown();
+        try {
+            if (!pool.awaitTermination(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+                pool.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            pool.shutdownNow();
+        }
+        Loggers.UTILS.debug("gracefully shut down thread pool of {}", name);
     }
 
 }

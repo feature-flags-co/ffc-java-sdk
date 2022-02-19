@@ -240,7 +240,7 @@ public abstract class Status {
             return storage.isInitialized();
         }
 
-        // blocking util you get the desired state or timeout
+        // blocking util you get the desired state, time out reaches or thread is interrupted
         boolean waitFor(StateType state, Duration timeout) throws InterruptedException {
             Instant deadline = Instant.now().plus(timeout);
             synchronized (lockObject) {

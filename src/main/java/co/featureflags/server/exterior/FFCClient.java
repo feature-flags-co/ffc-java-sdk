@@ -1,6 +1,7 @@
 package co.featureflags.server.exterior;
 
 import co.featureflags.server.Status;
+import co.featureflags.server.exterior.model.EvalDetail;
 import co.featureflags.server.exterior.model.FFCUser;
 
 import java.io.Closeable;
@@ -101,8 +102,18 @@ public interface FFCClient extends Closeable {
      * <p>
      *
      * @param json feature flags in the json format
-     * @throws JsonParseException if json is invalid
      * @return true if the initialization is well done
+     * @throws JsonParseException if json is invalid
      */
     boolean initializeFromExternalJson(String json);
+
+    EvalDetail<String> variationDetail(String featureFlagKey, FFCUser user, String defaultValue);
+
+    EvalDetail<Boolean> boolVariationDetail(String featureFlagKey, FFCUser user, Boolean defaultValue);
+
+    EvalDetail<Double> doubleVariationDetail(String featureFlagKey, FFCUser user, Double defaultValue);
+
+    EvalDetail<Integer> intVariationDetail(String featureFlagKey, FFCUser user, Integer defaultValue);
+
+    EvalDetail<Long> longVariationDetail(String featureFlagKey, FFCUser user, Long defaultValue);
 }
