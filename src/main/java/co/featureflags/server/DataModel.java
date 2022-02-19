@@ -19,6 +19,7 @@ public abstract class DataModel {
     public interface TimestampData {
         Integer FFC_FEATURE_FLAG = 100;
         Integer FFC_ARCHIVED_VDATA = 200;
+        Integer FFC_PERSISTENT_VDATA = 300;
 
         String getId();
 
@@ -93,6 +94,11 @@ public abstract class DataModel {
         public String getMessageType() {
             return messageType;
         }
+
+        boolean isProcessData() {
+            return "data-sync".equalsIgnoreCase(messageType) && data != null
+                    && ("full".equalsIgnoreCase(data.eventType) || "patch".equalsIgnoreCase(data.eventType));
+        }
     }
 
     /**
@@ -105,11 +111,10 @@ public abstract class DataModel {
         private final List<FeatureFlag> featureFlags;
         private Long timestamp;
 
-        public Data(String eventType, List<FeatureFlag> featureFlags) {
+        Data(String eventType, List<FeatureFlag> featureFlags) {
             this.eventType = eventType;
             this.featureFlags = featureFlags;
         }
-
 
         @Override
         public void afterDeserialization() {
@@ -118,7 +123,7 @@ public abstract class DataModel {
         }
 
         public List<FeatureFlag> getFeatureFlags() {
-            return featureFlags;
+            return featureFlags == null ? Collections.emptyList() : featureFlags;
         }
 
         public String getEventType() {
@@ -129,22 +134,14 @@ public abstract class DataModel {
             return timestamp;
         }
 
-        boolean isValidated() {
-            if (eventType == null || (!eventType.equalsIgnoreCase("full") && !eventType.equalsIgnoreCase("patch"))) {
-                return false;
-            }
-            return featureFlags != null && !featureFlags.isEmpty();
-        }
-
         Map<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> toStorageType() {
             ImmutableMap.Builder<String, DataStoreTypes.Item> newItems = ImmutableMap.builder();
-            for (FeatureFlag flag : featureFlags) {
+            for (FeatureFlag flag : getFeatureFlags()) {
                 TimestampData data = flag.isArchived ? flag.toArchivedTimestampData() : flag;
                 newItems.put(data.getId(), new DataStoreTypes.Item(data));
             }
             return ImmutableMap.of(DataStoreTypes.FEATURES, newItems.build());
         }
-
     }
 
     static class FeatureFlag implements TimestampData {

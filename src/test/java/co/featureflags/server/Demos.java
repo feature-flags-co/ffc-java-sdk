@@ -1,6 +1,7 @@
 package co.featureflags.server;
 
 import co.featureflags.server.exterior.FFCClient;
+import co.featureflags.server.exterior.model.EvalDetail;
 import co.featureflags.server.exterior.model.FFCUser;
 
 import java.io.IOException;
@@ -12,18 +13,23 @@ abstract class Demos {
 
     static void monitoringPerf(String name, Instant start, Instant end) {
         Duration duration = Duration.between(start, end);
-        System.out.println(String.format("execution time for %s is %d milliseconds", name, duration.toMillis()));
+        System.out.printf("execution time for %s is %d milliseconds%n", name, duration.toMillis());
     }
 
     static final class FFCClientStartAndWait {
-        public static void main(String[] args) throws IOException, InterruptedException {
+        public static void main(String[] args) throws IOException {
             String envSecret = "YjA1LTNiZDUtNCUyMDIxMDkwNDIyMTMxNV9fMzhfXzQ4X18xMDNfX2RlZmF1bHRfNzc1Yjg=";
 
             StreamingBuilder streamingBuilder = Factory.streamingBuilder()
                     .newStreamingURI("wss://ffc-api-ce2-dev.chinacloudsites.cn");
 
+            InsightProcessorBuilder insightProcessorBuilder = Factory.insightProcessorFactory()
+                    .eventUri("https://ffc-api-ce2-dev.chinacloudsites.cn");
+
+
             FFCConfig config = new FFCConfig.Builder()
                     .updateProcessorFactory(streamingBuilder)
+                    .insightProcessorFactory(insightProcessorBuilder)
                     .build();
 
             FFCClient client = new FFCClientImp(envSecret, config);
@@ -42,7 +48,7 @@ abstract class Demos {
                     String[] words = line.split("/");
                     user = new FFCUser.Builder(words[0]).build();
                     Instant start = Instant.now();
-                    String res = client.variation(words[1], user, "Not Found");
+                    EvalDetail<String> res = client.variationDetail(words[1], user, "Not Found");
                     Instant end = Instant.now();
                     System.out.println("result is " + res);
                     monitoringPerf("evaluate", start, end);
@@ -85,7 +91,7 @@ abstract class Demos {
                     String[] words = line.split("/");
                     user = new FFCUser.Builder(words[0]).build();
                     Instant start = Instant.now();
-                    String res = client.variation(words[1], user, "Not Found");
+                    EvalDetail<String> res = client.variationDetail(words[1], user, "Not Found");
                     Instant end = Instant.now();
                     System.out.println("result is " + res);
                     monitoringPerf("evaluate", start, end);

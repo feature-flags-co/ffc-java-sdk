@@ -1,6 +1,7 @@
 package co.featureflags.server.exterior;
 
 import co.featureflags.server.Status;
+import co.featureflags.server.exterior.model.EvalDetail;
 import co.featureflags.server.exterior.model.FFCUser;
 
 import java.io.Closeable;
@@ -18,7 +19,7 @@ public interface FFCClient extends Closeable {
      *
      * @return true if the client is ready, or false if it is still initializing
      */
-    public boolean isInitialized();
+    boolean isInitialized();
 
     /**
      * Calculates the value of a feature flag for a given user.
@@ -29,7 +30,7 @@ public interface FFCClient extends Closeable {
      * @param defaultValue   the default value of the flag
      * @return the variation for the given user, or {@code defaultValue} if the flag is disabled or an error occurs
      */
-    public String variation(String featureFlagKey, FFCUser user, String defaultValue);
+    String variation(String featureFlagKey, FFCUser user, String defaultValue);
 
     /**
      * Calculates the value of a feature flag for a given user.
@@ -40,7 +41,7 @@ public interface FFCClient extends Closeable {
      * @param defaultValue   the default value of the flag
      * @return if the flag should be enabled, or {@code defaultValue} if the flag is disabled or an error occurs
      */
-    public boolean boolVariation(String featureFlagKey, FFCUser user, Boolean defaultValue);
+    boolean boolVariation(String featureFlagKey, FFCUser user, Boolean defaultValue);
 
     /**
      * Calculates the double value of a feature flag for a given user.
@@ -51,7 +52,7 @@ public interface FFCClient extends Closeable {
      * @param defaultValue   the default value of the flag
      * @return the variation for the given user, or {@code defaultValue} if the flag is disabled or an error occurs
      */
-    public double doubleVariation(String featureFlagKey, FFCUser user, Double defaultValue);
+    double doubleVariation(String featureFlagKey, FFCUser user, Double defaultValue);
 
     /**
      * Calculates the integer value of a feature flag for a given user.
@@ -63,7 +64,7 @@ public interface FFCClient extends Closeable {
      * @param defaultValue   the default value of the flag
      * @return the variation for the given user, or {@code defaultValue} if the flag is disabled or an error occurs
      */
-    public int intVariation(String featureFlagKey, FFCUser user, Integer defaultValue);
+    int intVariation(String featureFlagKey, FFCUser user, Integer defaultValue);
 
     /**
      * Calculates the long value of a feature flag for a given user.
@@ -75,7 +76,7 @@ public interface FFCClient extends Closeable {
      * @param defaultValue   the default value of the flag
      * @return the variation for the given user, or {@code defaultValue} if the flag is disabled or an error occurs
      */
-    public long longVariation(String featureFlagKey, FFCUser user, Long defaultValue);
+    long longVariation(String featureFlagKey, FFCUser user, Long defaultValue);
 
     /**
      * Returns true if the specified feature flag currently exists.
@@ -83,7 +84,7 @@ public interface FFCClient extends Closeable {
      * @param featureKey the unique key for the feature flag
      * @return true if the flag exists
      */
-    public boolean isFlagKnown(String featureKey);
+    boolean isFlagKnown(String featureKey);
 
     /**
      * Returns an interface for tracking the status of the update processor.
@@ -94,5 +95,25 @@ public interface FFCClient extends Closeable {
      *
      * @return a {@link co.featureflags.server.Status.DataUpdateStatusProvider}
      */
-    public Status.DataUpdateStatusProvider getDataUpdateStatusProvider();
+    Status.DataUpdateStatusProvider getDataUpdateStatusProvider();
+
+    /**
+     * initialization in the offline mode
+     * <p>
+     *
+     * @param json feature flags in the json format
+     * @return true if the initialization is well done
+     * @throws JsonParseException if json is invalid
+     */
+    boolean initializeFromExternalJson(String json);
+
+    EvalDetail<String> variationDetail(String featureFlagKey, FFCUser user, String defaultValue);
+
+    EvalDetail<Boolean> boolVariationDetail(String featureFlagKey, FFCUser user, Boolean defaultValue);
+
+    EvalDetail<Double> doubleVariationDetail(String featureFlagKey, FFCUser user, Double defaultValue);
+
+    EvalDetail<Integer> intVariationDetail(String featureFlagKey, FFCUser user, Integer defaultValue);
+
+    EvalDetail<Long> longVariationDetail(String featureFlagKey, FFCUser user, Long defaultValue);
 }

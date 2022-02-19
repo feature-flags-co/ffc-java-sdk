@@ -7,11 +7,14 @@ import co.featureflags.server.exterior.DataStorageFactory;
 import co.featureflags.server.exterior.DataStoreTypes;
 import co.featureflags.server.exterior.HttpConfig;
 import co.featureflags.server.exterior.HttpConfigurationBuilder;
+import co.featureflags.server.exterior.InsightEventSender;
+import co.featureflags.server.exterior.InsightProcessor;
+import co.featureflags.server.exterior.InsightProcessorFactory;
 import co.featureflags.server.exterior.UpdateProcessor;
 import co.featureflags.server.exterior.UpdateProcessorFactory;
-import co.featureflags.server.exterior.Utils;
+import org.apache.commons.lang3.StringUtils;
 
-import java.io.IOException;
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -98,8 +101,7 @@ abstract class FactoryImp {
         }
 
         @Override
-        public void close() throws IOException {
-
+        public void close() {
         }
     }
 
@@ -114,13 +116,17 @@ abstract class FactoryImp {
             } else {
                 Loggers.CLIENT.info("SDK won't connect to feature-flag.co");
             }
-            return NullUpdateProcessor.SINGLETON;
+            return new NullUpdateProcessor(dataUpdator);
         }
     }
 
     private static final class NullUpdateProcessor implements UpdateProcessor {
 
-        static final NullUpdateProcessor SINGLETON = new NullUpdateProcessor();
+        private final Status.DataUpdator dataUpdator;
+
+        NullUpdateProcessor(Status.DataUpdator dataUpdator) {
+            this.dataUpdator = dataUpdator;
+        }
 
         @Override
         public Future<Boolean> start() {
@@ -129,7 +135,7 @@ abstract class FactoryImp {
 
         @Override
         public boolean isInitialized() {
-            return true;
+            return dataUpdator.storageInitialized();
         }
 
         @Override
@@ -137,5 +143,56 @@ abstract class FactoryImp {
 
         }
     }
+
+    static final class InsightProcessBuilderImpl extends InsightProcessorBuilder {
+        @Override
+        public InsightEventSender createInsightEventSender(Context context) {
+            maxRetryTimes = maxRetryTimes < 0 ? DEFAULT_RETRY_TIMES : maxRetryTimes;
+            retryIntervalInMilliseconds = retryIntervalInMilliseconds <= 0 ? DEFAULT_RETRY_DELAY : retryIntervalInMilliseconds;
+            return new Senders.InsightEventSenderImp(context.http(), maxRetryTimes, Duration.ofMillis(retryIntervalInMilliseconds));
+        }
+
+        @Override
+        public InsightProcessor createInsightProcessor(Context context) {
+            InsightEventSender sender = createInsightEventSender(context);
+            InsightTypes.InsightConfig config = new InsightTypes.InsightConfig(sender,
+                    StringUtils.isBlank(eventUri) ? DEFAULT_EVENT_URI : eventUri,
+                    flushInterval,
+                    Math.max(DEFAULT_CAPACITY, capacity));
+            return new Insights.InsightProcessorImpl(config);
+        }
+    }
+
+    static final class NullInsightProcessorFactory implements InsightProcessorFactory {
+        static final NullInsightProcessorFactory SINGLETON = new NullInsightProcessorFactory();
+
+        @Override
+        public InsightProcessor createInsightProcessor(Context context) {
+            Loggers.CLIENT.info("Null Insight processor is only used in offline mode");
+            return NullInsightProcessor.SINGLETON;
+        }
+    }
+
+    static final class NullInsightProcessor implements InsightProcessor {
+
+        static final NullInsightProcessor SINGLETON = new NullInsightProcessor();
+
+
+        @Override
+        public void send(InsightTypes.Event event) {
+
+        }
+
+        @Override
+        public void flush() {
+
+        }
+
+        @Override
+        public void close() {
+
+        }
+    }
+
 
 }
