@@ -1,12 +1,13 @@
 package co.featureflags.server;
 
+import co.featureflags.commons.json.JsonHelper;
+import co.featureflags.commons.model.EvalDetail;
+import co.featureflags.commons.model.FFCUser;
 import co.featureflags.server.exterior.DataStorage;
 import co.featureflags.server.exterior.DataStoreTypes;
 import co.featureflags.server.exterior.FFCClient;
 import co.featureflags.server.exterior.InsightProcessor;
 import co.featureflags.server.exterior.UpdateProcessor;
-import co.featureflags.server.exterior.model.EvalDetail;
-import co.featureflags.server.exterior.model.FFCUser;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;

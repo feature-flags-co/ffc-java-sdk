@@ -1,6 +1,6 @@
 package co.featureflags.server;
 
-import co.featureflags.server.exterior.model.FFCUser;
+import co.featureflags.commons.model.FFCUser;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;

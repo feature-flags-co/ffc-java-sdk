@@ -1,7 +1,7 @@
 package co.featureflags.server;
 
+import co.featureflags.commons.model.FFCUser;
 import co.featureflags.server.exterior.InsightEventSender;
-import co.featureflags.server.exterior.model.FFCUser;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;

@@ -1,7 +1,8 @@
 package co.featureflags.server;
 
-import co.featureflags.server.exterior.JsonParseException;
-import co.featureflags.server.exterior.model.FFCUser;
+import co.featureflags.commons.json.JsonHelper;
+import co.featureflags.commons.model.FFCUser;
+import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang3.StringUtils;
 

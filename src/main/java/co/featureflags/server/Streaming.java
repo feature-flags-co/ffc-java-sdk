@@ -1,10 +1,11 @@
 package co.featureflags.server;
 
+import co.featureflags.commons.json.JsonHelper;
+import co.featureflags.commons.json.JsonParseException;
 import co.featureflags.server.exterior.BasicConfig;
 import co.featureflags.server.exterior.Context;
 import co.featureflags.server.exterior.DataStoreTypes;
 import co.featureflags.server.exterior.HttpConfig;
-import co.featureflags.server.exterior.JsonParseException;
 import co.featureflags.server.exterior.UpdateProcessor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

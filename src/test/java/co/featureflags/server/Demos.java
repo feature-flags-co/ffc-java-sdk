@@ -1,8 +1,8 @@
 package co.featureflags.server;
 
+import co.featureflags.commons.model.EvalDetail;
+import co.featureflags.commons.model.FFCUser;
 import co.featureflags.server.exterior.FFCClient;
-import co.featureflags.server.exterior.model.EvalDetail;
-import co.featureflags.server.exterior.model.FFCUser;
 
 import java.io.IOException;
 import java.time.Duration;

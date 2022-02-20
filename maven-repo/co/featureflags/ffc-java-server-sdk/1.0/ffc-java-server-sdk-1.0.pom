@@ -32,6 +32,14 @@
         <url>https://github.com/feature-flags-co/ffc-java-sdk/tree/main</url>
     </scm>
 
+    <repositories>
+        <repository>
+            <id>github-ffc-java-sdk-commons-repo</id>
+            <name>The Maven Repository on Github</name>
+            <url>https://feature-flags-co.github.io/ffc-java-sdk-commons/maven-repo</url>
+        </repository>
+    </repositories>
+
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
@@ -87,6 +95,12 @@
             <artifactId>slf4j-simple</artifactId>
             <version>${slf4j-version}</version>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>co.featureflags</groupId>
+            <artifactId>ffc-java-sdk-commons</artifactId>
+            <version>1.0</version>
         </dependency>
 
     </dependencies>
