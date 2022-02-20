@@ -70,9 +70,14 @@ abstract class Demos {
             StreamingBuilder streamingBuilder = Factory.streamingBuilder()
                     .newStreamingURI("wss://ffc-api-ce2-dev.chinacloudsites.cn");
 
+            InsightProcessorBuilder insightProcessorBuilder = Factory.insightProcessorFactory()
+                    .eventUri("https://ffc-api-ce2-dev.chinacloudsites.cn");
+
+
             FFCConfig config = new FFCConfig.Builder()
                     .startWaitTime(Duration.ZERO)
                     .updateProcessorFactory(streamingBuilder)
+                    .insightProcessorFactory(insightProcessorBuilder)
                     .build();
 
             FFCClient client = new FFCClientImp(envSecret, config);
