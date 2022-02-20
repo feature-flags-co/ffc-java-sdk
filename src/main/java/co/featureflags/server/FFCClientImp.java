@@ -303,16 +303,18 @@ public final class FFCClientImp implements FFCClient {
 
     @Override
     public boolean initializeFromExternalJson(String json) {
-        DataModel.All all = JsonHelper.deserialize(json, DataModel.All.class);
-        if (all.isProcessData()) {
-            DataModel.Data allData = all.data();
-            Long version = allData.getTimestamp();
-            Map<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> allDataInStorageType = allData.toStorageType();
-            boolean res = dataUpdator.init(allDataInStorageType, version);
-            if (res) {
-                dataUpdator.updateStatus(Status.StateType.OK, null);
+        if (offline) {
+            DataModel.All all = JsonHelper.deserialize(json, DataModel.All.class);
+            if (all.isProcessData()) {
+                DataModel.Data allData = all.data();
+                Long version = allData.getTimestamp();
+                Map<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> allDataInStorageType = allData.toStorageType();
+                boolean res = dataUpdator.init(allDataInStorageType, version);
+                if (res) {
+                    dataUpdator.updateStatus(Status.StateType.OK, null);
+                }
+                return res;
             }
-            return res;
         }
         return false;
     }
