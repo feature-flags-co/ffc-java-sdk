@@ -52,7 +52,11 @@ final class EvaluatorImp extends Evaluator {
                 return er;
             }
             // TODO useless code
-            er = EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_FALLTHROUGH, false);
+            er = EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(),
+                    REASON_FALLTHROUGH,
+                    false,
+                    flag.getInfo().getKeyName(),
+                    flag.getInfo().getName());
             return er;
         } finally {
             if (er != null && event != null) {
@@ -64,7 +68,11 @@ final class EvaluatorImp extends Evaluator {
     private EvalResult matchFeatureFlagDisabledUserVariation(DataModel.FeatureFlag flag, FFCUser user, InsightTypes.Event event) {
         // case flag is off
         if (FLAG_DISABLE_STATS.equals(flag.getInfo().getStatus())) {
-            return EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_FLAG_OFF, false);
+            return EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(),
+                    REASON_FLAG_OFF,
+                    false,
+                    flag.getInfo().getKeyName(),
+                    flag.getInfo().getName());
         }
         // case prerequisite is set
         return flag.getPrerequisites().stream()
@@ -85,7 +93,11 @@ final class EvaluatorImp extends Evaluator {
                     }
                     return false;
                 }).findFirst()
-                .map(prerequisite -> EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_PREREQUISITE_FAILED, false))
+                .map(prerequisite -> EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(),
+                        REASON_PREREQUISITE_FAILED,
+                        false,
+                        flag.getInfo().getKeyName(),
+                        flag.getInfo().getName()))
                 .orElse(null);
     }
 
@@ -95,7 +107,9 @@ final class EvaluatorImp extends Evaluator {
                 .findFirst()
                 .map(target -> EvalResult.of(target.getValueOption(),
                         REASON_TARGET_MATCH,
-                        featureFlag.isExptIncludeAllRules()))
+                        featureFlag.isExptIncludeAllRules(),
+                        featureFlag.getInfo().getKeyName(),
+                        featureFlag.getInfo().getName()))
                 .orElse(null);
     }
 
@@ -109,7 +123,9 @@ final class EvaluatorImp extends Evaluator {
                 getRollOutVariationOption(targetRule.getValueOptionsVariationRuleValues(),
                         user,
                         REASON_RULE_MATCH,
-                        targetRule.isIncludedInExpt());
+                        targetRule.isIncludedInExpt(),
+                        featureFlag.getInfo().getKeyName(),
+                        featureFlag.getInfo().getName());
 
 
     }
@@ -230,16 +246,20 @@ final class EvaluatorImp extends Evaluator {
         return getRollOutVariationOption(featureFlag.getInfo().getDefaultRulePercentageRollouts(),
                 user,
                 REASON_FALLTHROUGH,
-                featureFlag.getInfo().isDefaultRulePercentageRolloutsIncludedInExpt());
+                featureFlag.getInfo().isDefaultRulePercentageRolloutsIncludedInExpt(),
+                featureFlag.getInfo().getKeyName(),
+                featureFlag.getInfo().getName());
     }
 
     private EvalResult getRollOutVariationOption(Collection<DataModel.VariationOptionPercentageRollout> rollouts,
                                                  FFCUser user,
                                                  String reason,
-                                                 boolean sendToExperiment) {
+                                                 boolean sendToExperiment,
+                                                 String flagKeyName,
+                                                 String flagName) {
         return rollouts.stream()
                 .filter(rollout -> VariationSplittingAlgorithm.ifKeyBelongsPercentage(user.getKey(), rollout.getRolloutPercentage()))
-                .findFirst().map(rollout -> EvalResult.of(rollout.getValueOption(), reason, sendToExperiment))
+                .findFirst().map(rollout -> EvalResult.of(rollout.getValueOption(), reason, sendToExperiment, flagKeyName, flagName))
                 .orElse(null);
     }
 

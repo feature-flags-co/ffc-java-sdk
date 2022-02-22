@@ -5,6 +5,7 @@ import co.featureflags.commons.model.FFCUser;
 import co.featureflags.server.Status;
 
 import java.io.Closeable;
+import java.util.List;
 
 
 /**
@@ -24,6 +25,7 @@ public interface FFCClient extends Closeable {
     /**
      * Calculates the value of a feature flag for a given user.
      * <p>
+     *
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
      * @param defaultValue   the default value of the flag
@@ -67,7 +69,7 @@ public interface FFCClient extends Closeable {
 
     /**
      * Calculates the long value of a feature flag for a given user.
-     * Note that If the variation has a numeric value, but not along value, it is rounded toward zero(DOWN mode)
+     * Note that If the variation has a numeric value, but not a long value, it is rounded toward zero(DOWN mode)
      * <p>
      *
      * @param featureFlagKey the unique key for the feature flag
@@ -106,13 +108,79 @@ public interface FFCClient extends Closeable {
      */
     boolean initializeFromExternalJson(String json);
 
+    /**
+     * Returns an list t of all feature flags value for a given user, including the reason
+     * that describes the way the value was determined, that can be used on the client side sdk or a front end .
+     * <p>
+     * note that this method does not send insight events back to feature-flag.co.
+     *
+     * @param user the end user requesting the flag
+     * @return a list of {@link EvalDetail} object
+     */
+    List<EvalDetail<String>> getAllLatestFlagsVariations(FFCUser user);
+
+    /**
+     * Calculates the value of a feature flag for a given user, and returns an object that describes the
+     * way the value was determined.
+     * <p>
+     *
+     * @param featureFlagKey the unique key for the feature flag
+     * @param user           the end user requesting the flag
+     * @param defaultValue   the default value of the flag
+     * @return an {@link EvalDetail} object
+     */
     EvalDetail<String> variationDetail(String featureFlagKey, FFCUser user, String defaultValue);
 
+
+    /**
+     * Calculates the value of a feature flag for a given user, and returns an object that describes the
+     * way the value was determined.
+     * <p>
+     *
+     * @param featureFlagKey the unique key for the feature flag
+     * @param user           the end user requesting the flag
+     * @param defaultValue   the default value of the flag
+     * @return an {@link EvalDetail} object
+     */
     EvalDetail<Boolean> boolVariationDetail(String featureFlagKey, FFCUser user, Boolean defaultValue);
 
+    /**
+     * Calculates the value of a feature flag for a given user, and returns an object that describes the
+     * way the value was determined.
+     * <p>
+     *
+     * @param featureFlagKey the unique key for the feature flag
+     * @param user           the end user requesting the flag
+     * @param defaultValue   the default value of the flag
+     * @return an {@link EvalDetail} object
+     */
     EvalDetail<Double> doubleVariationDetail(String featureFlagKey, FFCUser user, Double defaultValue);
 
+    /**
+     * Calculates the value of a feature flag for a given user, and returns an object that describes the
+     * way the value was determined.
+     * <p>
+     * * Note that If the variation has a numeric value, but not a int value, it is rounded toward zero(DOWN mode)
+     * <p>
+     *
+     * @param featureFlagKey the unique key for the feature flag
+     * @param user           the end user requesting the flag
+     * @param defaultValue   the default value of the flag
+     * @return an {@link EvalDetail} object
+     */
     EvalDetail<Integer> intVariationDetail(String featureFlagKey, FFCUser user, Integer defaultValue);
 
+    /**
+     * Calculates the value of a feature flag for a given user, and returns an object that describes the
+     * way the value was determined.
+     * <p>
+     * Note that If the variation has a numeric value, but not a long value, it is rounded toward zero(DOWN mode)
+     * <p>
+     *
+     * @param featureFlagKey the unique key for the feature flag
+     * @param user           the end user requesting the flag
+     * @param defaultValue   the default value of the flag
+     * @return an {@link EvalDetail} object
+     */
     EvalDetail<Long> longVariationDetail(String featureFlagKey, FFCUser user, Long defaultValue);
 }
