@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Scanner;
 
 abstract class Demos {
@@ -143,6 +144,7 @@ abstract class Demos {
                     user = new FFCUser.Builder(words[0]).build();
                     VariationParams params = VariationParams.of(words[1], user);
                     String jsonBody = params.jsonfy();
+                    System.out.println(jsonBody);
                     String jsonResult = sender.postJson("http://localhost:8080/api/variation", jsonBody);
                     EvalDetail<String> res = EvalDetail.fromJson(jsonResult, String.class);
                     System.out.println("result is " + res);
@@ -154,6 +156,52 @@ abstract class Demos {
             sender.close();
             System.out.println("APP FINISHED");
 
+        }
+    }
+
+    static final class AllLatestFlagValuesForGivenUser {
+        public static void main(String[] args) throws IOException {
+            String envSecret = "YjA1LTNiZDUtNCUyMDIxMDkwNDIyMTMxNV9fMzhfXzQ4X18xMDNfX2RlZmF1bHRfNzc1Yjg=";
+
+            StreamingBuilder streamingBuilder = Factory.streamingBuilder()
+                    .newStreamingURI("wss://ffc-api-ce2-dev.chinacloudsites.cn");
+
+            InsightProcessorBuilder insightProcessorBuilder = Factory.insightProcessorFactory()
+                    .eventUri("https://ffc-api-ce2-dev.chinacloudsites.cn");
+
+
+            FFCConfig config = new FFCConfig.Builder()
+                    .updateProcessorFactory(streamingBuilder)
+                    .insightProcessorFactory(insightProcessorBuilder)
+                    .build();
+
+            FFCClient client = new FFCClientImp(envSecret, config);
+            Scanner scanner = new Scanner(System.in);
+            FFCUser user;
+            String userkey;
+            while (client.isInitialized()) {
+                System.out.println("------------------------------");
+                System.out.println("input user key");
+                userkey = scanner.nextLine();
+                if ("exit".equalsIgnoreCase(userkey)) {
+                    break;
+                }
+                try {
+                    user = new FFCUser.Builder(userkey).build();
+                    Instant start = Instant.now();
+                    List<EvalDetail<String>> res = client.getAllLatestFlagsVariations(user);
+                    Instant end = Instant.now();
+                    for (EvalDetail<String> ed : res) {
+                        System.out.println(ed);
+                    }
+                    monitoringPerf("evaluate", start, end);
+                } catch (Exception e) {
+                    break;
+                }
+            }
+            scanner.close();
+            client.close();
+            System.out.println("APP FINISHED");
         }
     }
 

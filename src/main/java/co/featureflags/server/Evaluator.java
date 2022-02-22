@@ -24,6 +24,10 @@ abstract class Evaluator {
     protected static final String REASON_FLAG_NOT_FOUND = "flag not found";
     protected static final String REASON_WRONG_TYPE = "wrong type";
     protected static final String REASON_ERROR = "error in evaluation";
+    protected static final String FLAG_KEY_UNKNOWN = "flag key unknown";
+    protected static final String FLAG_NAME_UNKNOWN = "flag name unknown";
+
+    protected static final String FLAG_VALUE_UNKNOWN = "flag value unknown";
 
     protected static final String THAN_CLAUSE = "Than";
     protected static final String GE_CLAUSE = "BiggerEqualThan";
@@ -65,25 +69,38 @@ abstract class Evaluator {
         private final String value;
         private final String reason;
         private final boolean sendToExperiment;
+        private final String keyName;
+        private final String name;
 
 
-        EvalResult(String value, Integer index, String reason, boolean sendToExperiment) {
+        EvalResult(String value, Integer index, String reason, boolean sendToExperiment, String keyName, String name) {
             this.value = value;
             this.index = index;
             this.reason = reason;
             this.sendToExperiment = true;
+            this.keyName = keyName;
+            this.name = name;
         }
 
-        public static EvalResult error(String reason) {
-            return new EvalResult(null, NO_EVAL_RES, reason, false);
+        public static EvalResult error(String reason, String keyName, String name) {
+            return new EvalResult(null, NO_EVAL_RES, reason, false, keyName, name);
         }
 
-        public static EvalResult error(String defaultValue, String reason) {
-            return new EvalResult(defaultValue, NO_EVAL_RES, reason, false);
+        public static EvalResult error(String defaultValue, String reason, String keyName, String name) {
+            return new EvalResult(defaultValue, NO_EVAL_RES, reason, false, keyName, name);
         }
 
-        public static EvalResult of(DataModel.VariationOption option, String reason, boolean sendToExperiment) {
-            return new EvalResult(option.getVariationValue(), option.getLocalId(), reason, sendToExperiment);
+        public static EvalResult of(DataModel.VariationOption option,
+                                    String reason,
+                                    boolean sendToExperiment,
+                                    String keyName,
+                                    String name) {
+            return new EvalResult(option.getVariationValue(),
+                    option.getLocalId(),
+                    reason,
+                    sendToExperiment,
+                    keyName,
+                    name);
         }
 
         public String getValue() {
@@ -100,6 +117,14 @@ abstract class Evaluator {
 
         public boolean isSendToExperiment() {
             return sendToExperiment;
+        }
+
+        public String getKeyName() {
+            return keyName;
+        }
+
+        public String getName() {
+            return name;
         }
 
         public boolean checkType(Object defaultValue) {
