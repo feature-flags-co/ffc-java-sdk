@@ -62,7 +62,7 @@ final class InMemoryDataStorage implements DataStorage {
         rwLock.readLock().lock();
         try {
             Map<String, DataStoreTypes.Item> items = allData.get(category);
-            if (items == null) return null;
+            if (items == null) return ImmutableMap.of();
             Map<String, DataStoreTypes.Item> map = items.entrySet().stream().filter(entry -> !entry.getValue().item().isArchived()).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             return ImmutableMap.copyOf(map);
         } finally {
