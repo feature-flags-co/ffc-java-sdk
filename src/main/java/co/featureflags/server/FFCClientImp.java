@@ -338,8 +338,7 @@ public final class FFCClientImp implements FFCClient {
                         FLAG_KEY_UNKNOWN,
                         FLAG_NAME_UNKNOWN);
                 builder.add(ed);
-            }
-            if (user == null || StringUtils.isBlank(user.getKey())) {
+            } else if (user == null || StringUtils.isBlank(user.getKey())) {
                 Loggers.EVALUATION.info("Null user or feature flag");
                 ed = EvalDetail.of(FLAG_VALUE_UNKNOWN,
                         NO_EVAL_RES,

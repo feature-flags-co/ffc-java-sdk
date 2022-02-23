@@ -126,7 +126,7 @@ abstract class Demos {
             HttpConfig httpConfig = Factory.httpConfigFactory().createHttpConfig(basicConfig);
             DefaultSender sender = new Senders.DefaultSenderImp(httpConfig, 1, Duration.ofMillis(100));
             String jsonOutput = Resources.toString(Resources.getResource("data.json"), StandardCharsets.UTF_8);
-            String feedback = sender.postJson("http://localhost:8080/api/init", jsonOutput);
+            String feedback = sender.postJson("http://localhost:8080/api/public/feature-flag/init", jsonOutput);
             System.out.println("------------------------------");
             System.out.println(feedback);
             Scanner scanner = new Scanner(System.in);
@@ -145,7 +145,7 @@ abstract class Demos {
                     VariationParams params = VariationParams.of(words[1], user);
                     String jsonBody = params.jsonfy();
                     System.out.println(jsonBody);
-                    String jsonResult = sender.postJson("http://localhost:8080/api/variation", jsonBody);
+                    String jsonResult = sender.postJson("http://localhost:8080/api/public/feature-flag/variation", jsonBody);
                     EvalDetail<String> res = EvalDetail.fromJson(jsonResult, String.class);
                     System.out.println("result is " + res);
                 } catch (Exception e) {
@@ -162,24 +162,13 @@ abstract class Demos {
     static final class AllLatestFlagValuesForGivenUser {
         public static void main(String[] args) throws IOException {
             String envSecret = "YjA1LTNiZDUtNCUyMDIxMDkwNDIyMTMxNV9fMzhfXzQ4X18xMDNfX2RlZmF1bHRfNzc1Yjg=";
-
-            StreamingBuilder streamingBuilder = Factory.streamingBuilder()
-                    .newStreamingURI("wss://ffc-api-ce2-dev.chinacloudsites.cn");
-
-            InsightProcessorBuilder insightProcessorBuilder = Factory.insightProcessorFactory()
-                    .eventUri("https://ffc-api-ce2-dev.chinacloudsites.cn");
-
-
-            FFCConfig config = new FFCConfig.Builder()
-                    .updateProcessorFactory(streamingBuilder)
-                    .insightProcessorFactory(insightProcessorBuilder)
-                    .build();
-
-            FFCClient client = new FFCClientImp(envSecret, config);
+            BasicConfig basicConfig = new BasicConfig(envSecret, false);
+            HttpConfig httpConfig = Factory.httpConfigFactory().createHttpConfig(basicConfig);
+            DefaultSender sender = new Senders.DefaultSenderImp(httpConfig, 1, Duration.ofMillis(100));
             Scanner scanner = new Scanner(System.in);
             FFCUser user;
             String userkey;
-            while (client.isInitialized()) {
+            while (true) {
                 System.out.println("------------------------------");
                 System.out.println("input user key");
                 userkey = scanner.nextLine();
@@ -188,19 +177,19 @@ abstract class Demos {
                 }
                 try {
                     user = new FFCUser.Builder(userkey).build();
-                    Instant start = Instant.now();
-                    List<EvalDetail<String>> res = client.getAllLatestFlagsVariations(user);
-                    Instant end = Instant.now();
+                    VariationParams params = VariationParams.of(null, user);
+                    String jsonBody = params.jsonfy();
+                    System.out.println(jsonBody);
+                    String jsonResult = sender.postJson("http://localhost:8080/api/public/feature-flag/variations", jsonBody);
+                    List<EvalDetail<String>> res = JsonHelper.deserialize(jsonResult, new TypeToken<List<EvalDetail<String>>>() {}.getType());
                     for (EvalDetail<String> ed : res) {
                         System.out.println(ed);
                     }
-                    monitoringPerf("evaluate", start, end);
                 } catch (Exception e) {
                     break;
                 }
             }
             scanner.close();
-            client.close();
             System.out.println("APP FINISHED");
         }
     }
