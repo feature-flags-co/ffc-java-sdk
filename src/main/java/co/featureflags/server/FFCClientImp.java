@@ -1,8 +1,10 @@
 package co.featureflags.server;
 
 import co.featureflags.commons.json.JsonHelper;
+import co.featureflags.commons.model.AllFlagStates;
 import co.featureflags.commons.model.EvalDetail;
 import co.featureflags.commons.model.FFCUser;
+import co.featureflags.commons.model.FlagState;
 import co.featureflags.server.exterior.DataStorage;
 import co.featureflags.server.exterior.DataStoreTypes;
 import co.featureflags.server.exterior.FFCClient;
@@ -16,7 +18,6 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -179,9 +180,9 @@ public final class FFCClientImp implements FFCClient {
         return res.getValue();
     }
 
-    public EvalDetail<String> variationDetail(String featureFlagKey, FFCUser user, String defaultValue) {
+    public FlagState<String> variationDetail(String featureFlagKey, FFCUser user, String defaultValue) {
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, false);
-        return EvalDetail.of(res.getValue(), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey);
+        return EvalDetail.of(res.getValue(), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey).toFlagState();
     }
 
     public boolean boolVariation(String featureFlagKey, FFCUser user, Boolean defaultValue) {
@@ -190,10 +191,10 @@ public final class FFCClientImp implements FFCClient {
         return BooleanUtils.toBoolean(res.getValue());
     }
 
-    public EvalDetail<Boolean> boolVariationDetail(String featureFlagKey, FFCUser user, Boolean defaultValue) {
+    public FlagState<Boolean> boolVariationDetail(String featureFlagKey, FFCUser user, Boolean defaultValue) {
         checkNotNull(defaultValue, "null defaultValue is invalid");
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, true);
-        return EvalDetail.of(BooleanUtils.toBoolean(res.getValue()), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey);
+        return EvalDetail.of(BooleanUtils.toBoolean(res.getValue()), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey).toFlagState();
     }
 
     public double doubleVariation(String featureFlagKey, FFCUser user, Double defaultValue) {
@@ -203,10 +204,10 @@ public final class FFCClientImp implements FFCClient {
     }
 
     @Override
-    public EvalDetail<Double> doubleVariationDetail(String featureFlagKey, FFCUser user, Double defaultValue) {
+    public FlagState<Double> doubleVariationDetail(String featureFlagKey, FFCUser user, Double defaultValue) {
         checkNotNull(defaultValue, "null defaultValue is invalid");
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, true);
-        return EvalDetail.of(Double.parseDouble(res.getValue()), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey);
+        return EvalDetail.of(Double.parseDouble(res.getValue()), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey).toFlagState();
     }
 
     public int intVariation(String featureFlagKey, FFCUser user, Integer defaultValue) {
@@ -216,10 +217,10 @@ public final class FFCClientImp implements FFCClient {
     }
 
     @Override
-    public EvalDetail<Integer> intVariationDetail(String featureFlagKey, FFCUser user, Integer defaultValue) {
+    public FlagState<Integer> intVariationDetail(String featureFlagKey, FFCUser user, Integer defaultValue) {
         checkNotNull(defaultValue, "null defaultValue is invalid");
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, true);
-        return EvalDetail.of(Double.valueOf(res.getValue()).intValue(), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey);
+        return EvalDetail.of(Double.valueOf(res.getValue()).intValue(), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey).toFlagState();
     }
 
     public long longVariation(String featureFlagKey, FFCUser user, Long defaultValue) {
@@ -229,10 +230,10 @@ public final class FFCClientImp implements FFCClient {
     }
 
     @Override
-    public EvalDetail<Long> longVariationDetail(String featureFlagKey, FFCUser user, Long defaultValue) {
+    public FlagState<Long> longVariationDetail(String featureFlagKey, FFCUser user, Long defaultValue) {
         checkNotNull(defaultValue, "null defaultValue is invalid");
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, true);
-        return EvalDetail.of(Double.valueOf(res.getValue()).longValue(), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey);
+        return EvalDetail.of(Double.valueOf(res.getValue()).longValue(), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey).toFlagState();
     }
 
     Evaluator.EvalResult evaluateInternal(String featureFlagKey, FFCUser user, Object defaultValue, boolean checkType) {
@@ -326,8 +327,10 @@ public final class FFCClientImp implements FFCClient {
     }
 
     @Override
-    public List<EvalDetail<String>> getAllLatestFlagsVariations(FFCUser user) {
+    public AllFlagStates<String> getAllLatestFlagsVariations(FFCUser user) {
         ImmutableList.Builder<EvalDetail<String>> builder = new ImmutableList.Builder<>();
+        boolean success = true;
+        String errorString = null;
         EvalDetail ed;
         try {
             if (!isInitialized()) {
@@ -338,6 +341,8 @@ public final class FFCClientImp implements FFCClient {
                         FLAG_KEY_UNKNOWN,
                         FLAG_NAME_UNKNOWN);
                 builder.add(ed);
+                success = false;
+                errorString = REASON_CLIENT_NOT_READY;
             } else if (user == null || StringUtils.isBlank(user.getKey())) {
                 Loggers.EVALUATION.info("Null user or feature flag");
                 ed = EvalDetail.of(FLAG_VALUE_UNKNOWN,
@@ -346,6 +351,8 @@ public final class FFCClientImp implements FFCClient {
                         FLAG_KEY_UNKNOWN,
                         FLAG_NAME_UNKNOWN);
                 builder.add(ed);
+                success = false;
+                errorString = REASON_USER_NOT_SPECIFIED;
             } else {
                 Map<String, DataStoreTypes.Item> allFlags = this.storage.getAll(FEATURES);
                 for (DataStoreTypes.Item item : allFlags.values()) {
@@ -367,7 +374,9 @@ public final class FFCClientImp implements FFCClient {
                     FLAG_KEY_UNKNOWN,
                     FLAG_NAME_UNKNOWN);
             builder.add(ed);
+            success = false;
+            errorString = REASON_ERROR;
         }
-        return builder.build();
+        return AllFlagStates.of(success, errorString, builder.build());
     }
 }

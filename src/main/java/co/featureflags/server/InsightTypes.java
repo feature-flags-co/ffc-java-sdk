@@ -110,7 +110,7 @@ public abstract class InsightTypes {
                 p.addProperty("value", keyItem.getValue());
                 array.add(p);
             }
-            json.add("userCustomizedProperties", array);
+            json.add("customizedProperties", array);
             JsonArray array1 = new JsonArray();
             for (FlagEventVariation variation : flagEvent.userVariations) {
                 JsonObject var = new JsonObject();

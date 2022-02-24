@@ -1,7 +1,9 @@
 package co.featureflags.server.exterior;
 
+import co.featureflags.commons.model.AllFlagStates;
 import co.featureflags.commons.model.EvalDetail;
 import co.featureflags.commons.model.FFCUser;
+import co.featureflags.commons.model.FlagState;
 import co.featureflags.server.Status;
 
 import java.io.Closeable;
@@ -109,15 +111,15 @@ public interface FFCClient extends Closeable {
     boolean initializeFromExternalJson(String json);
 
     /**
-     * Returns an list t of all feature flags value for a given user, including the reason
+     * Returns a list of all feature flags value with details for a given user, including the reason
      * that describes the way the value was determined, that can be used on the client side sdk or a front end .
      * <p>
      * note that this method does not send insight events back to feature-flag.co.
      *
      * @param user the end user requesting the flag
-     * @return a list of {@link EvalDetail} object
+     * @return a {@link AllFlagStates}
      */
-    List<EvalDetail<String>> getAllLatestFlagsVariations(FFCUser user);
+    AllFlagStates<String> getAllLatestFlagsVariations(FFCUser user);
 
     /**
      * Calculates the value of a feature flag for a given user, and returns an object that describes the
@@ -127,9 +129,9 @@ public interface FFCClient extends Closeable {
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
      * @param defaultValue   the default value of the flag
-     * @return an {@link EvalDetail} object
+     * @return an {@link FlagState} object
      */
-    EvalDetail<String> variationDetail(String featureFlagKey, FFCUser user, String defaultValue);
+    FlagState<String> variationDetail(String featureFlagKey, FFCUser user, String defaultValue);
 
 
     /**
@@ -140,9 +142,9 @@ public interface FFCClient extends Closeable {
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
      * @param defaultValue   the default value of the flag
-     * @return an {@link EvalDetail} object
+     * @return an {@link FlagState} object
      */
-    EvalDetail<Boolean> boolVariationDetail(String featureFlagKey, FFCUser user, Boolean defaultValue);
+    FlagState<Boolean> boolVariationDetail(String featureFlagKey, FFCUser user, Boolean defaultValue);
 
     /**
      * Calculates the value of a feature flag for a given user, and returns an object that describes the
@@ -152,9 +154,9 @@ public interface FFCClient extends Closeable {
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
      * @param defaultValue   the default value of the flag
-     * @return an {@link EvalDetail} object
+     * @return an {@link FlagState} object
      */
-    EvalDetail<Double> doubleVariationDetail(String featureFlagKey, FFCUser user, Double defaultValue);
+    FlagState<Double> doubleVariationDetail(String featureFlagKey, FFCUser user, Double defaultValue);
 
     /**
      * Calculates the value of a feature flag for a given user, and returns an object that describes the
@@ -166,9 +168,9 @@ public interface FFCClient extends Closeable {
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
      * @param defaultValue   the default value of the flag
-     * @return an {@link EvalDetail} object
+     * @return an {@link FlagState} object
      */
-    EvalDetail<Integer> intVariationDetail(String featureFlagKey, FFCUser user, Integer defaultValue);
+    FlagState<Integer> intVariationDetail(String featureFlagKey, FFCUser user, Integer defaultValue);
 
     /**
      * Calculates the value of a feature flag for a given user, and returns an object that describes the
@@ -180,7 +182,7 @@ public interface FFCClient extends Closeable {
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
      * @param defaultValue   the default value of the flag
-     * @return an {@link EvalDetail} object
+     * @return an {@link FlagState} object
      */
-    EvalDetail<Long> longVariationDetail(String featureFlagKey, FFCUser user, Long defaultValue);
+    FlagState<Long> longVariationDetail(String featureFlagKey, FFCUser user, Long defaultValue);
 }

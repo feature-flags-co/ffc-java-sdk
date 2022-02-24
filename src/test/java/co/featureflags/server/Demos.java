@@ -3,6 +3,7 @@ package co.featureflags.server;
 import co.featureflags.commons.json.JsonHelper;
 import co.featureflags.commons.model.EvalDetail;
 import co.featureflags.commons.model.FFCUser;
+import co.featureflags.commons.model.FlagState;
 import co.featureflags.commons.model.VariationParams;
 import co.featureflags.server.exterior.BasicConfig;
 import co.featureflags.server.exterior.DefaultSender;
@@ -57,7 +58,7 @@ abstract class Demos {
                     String[] words = line.split("/");
                     user = new FFCUser.Builder(words[0]).build();
                     Instant start = Instant.now();
-                    EvalDetail<String> res = client.variationDetail(words[1], user, "Not Found");
+                    FlagState<String> res = client.variationDetail(words[1], user, "Not Found");
                     Instant end = Instant.now();
                     System.out.println("result is " + res);
                     monitoringPerf("evaluate", start, end);
@@ -105,7 +106,7 @@ abstract class Demos {
                     String[] words = line.split("/");
                     user = new FFCUser.Builder(words[0]).build();
                     Instant start = Instant.now();
-                    EvalDetail<String> res = client.variationDetail(words[1], user, "Not Found");
+                    FlagState<String> res = client.variationDetail(words[1], user, "Not Found");
                     Instant end = Instant.now();
                     System.out.println("result is " + res);
                     monitoringPerf("evaluate", start, end);
@@ -181,7 +182,8 @@ abstract class Demos {
                     String jsonBody = params.jsonfy();
                     System.out.println(jsonBody);
                     String jsonResult = sender.postJson("http://localhost:8080/api/public/feature-flag/variations", jsonBody);
-                    List<EvalDetail<String>> res = JsonHelper.deserialize(jsonResult, new TypeToken<List<EvalDetail<String>>>() {}.getType());
+                    List<EvalDetail<String>> res = JsonHelper.deserialize(jsonResult, new TypeToken<List<EvalDetail<String>>>() {
+                    }.getType());
                     for (EvalDetail<String> ed : res) {
                         System.out.println(ed);
                     }
