@@ -7,17 +7,44 @@ import com.google.common.collect.ImmutableList;
 import java.io.Serializable;
 import java.util.*;
 
+/**
+ * Contains information about the internal data model for storage objects
+ * <p>
+ * The implementation of internal components is not public to application code (although of course developers can easily
+ * look at the code or the data) so that changes to SDK implementation details will not be breaking changes to the application.
+ * This class provide a high-level description of storage objects so that custom integration code or test code can
+ * store or serialize them.
+ */
 public abstract class DataStoreTypes {
 
+    /**
+     * The {@link Category} instance that describes feature flag data.
+     * <p>
+     * Applications should not need to reference this object directly.It is public so that custom integrations
+     * and test code can serialize or deserialize data or inject it into a data storage.
+     */
     public final static Category FEATURES = new Category("featureFlags",
             "/api/public/sdk/latest-feature-flags",
-            "streaming");
+            "/streaming");
+
+    /**
+     * An enumeration of all supported {@link Category} types.
+     * <p>
+     * Applications should not need to reference this object directly. It is public so that custom data storage
+     * implementations can determine what kinds of model objects may need to be stored.
+     */
 
     public final List<Category> FFC_ALL_CATS = ImmutableList.of(FEATURES);
 
     private DataStoreTypes() {
     }
 
+    /**
+     * Represents a separated namespace of storable data items.
+     * <p>
+     * The SDK passes instances of this type to the data store to specify whether it is referring to
+     * a feature flag, a user segment, etc
+     */
     public static final class Category implements Serializable {
         private final String name;
         private final String pollingApiUrl;
@@ -29,6 +56,12 @@ public abstract class DataStoreTypes {
             this.streamingApiUrl = streamingApiUrl;
         }
 
+        /**
+         * build a external category
+         *
+         * @param name the name of namespace
+         * @return a Category
+         */
         public static Category of(String name) {
             return new Category(name, "unknown", "unknown");
         }
@@ -58,6 +91,12 @@ public abstract class DataStoreTypes {
         }
     }
 
+    /**
+     * Object, that contains s versioned item (or placeholder), storable in a {@link DataStorage}.
+     * <p>
+     * This is used for the default memory data storage that directly store objects in memory.
+     */
+
     public static final class Item {
         private final DataModel.TimestampData item;
 
@@ -65,6 +104,11 @@ public abstract class DataStoreTypes {
             this.item = data;
         }
 
+        /**
+         * Returns a version object or an archived object if the object is archived
+         *
+         * @return a {@link co.featureflags.server.DataModel.TimestampData}
+         */
         public DataModel.TimestampData item() {
             return item;
         }
@@ -90,6 +134,13 @@ public abstract class DataStoreTypes {
         }
     }
 
+    /**
+     * Object, that contains s versioned item (or placeholder), storable in a {@link DataStorage}.
+     * <p>
+     * This is equivalent to {@link Item}, but is used for persistent data storage(like redis, mongodb etc.). The
+     * SDK will convert each data item to and from its json string form; the persistent data
+     * store deals only with the json form.
+     */
     public static final class PersistentItem implements DataModel.TimestampData, Serializable {
         private final String id;
         private final Long timestamp;
@@ -106,6 +157,15 @@ public abstract class DataStoreTypes {
             this.json = json;
         }
 
+        /**
+         * build a PersistentItem instance
+         *
+         * @param id         unique id of PersistentItem
+         * @param timestamp  the version number, Ordinarily it's a timestamped value
+         * @param isArchived true if it's an archived object
+         * @param json       the json string
+         * @return a PersistentItem instance
+         */
         public static PersistentItem of(String id,
                                         Long timestamp,
                                         Boolean isArchived,
@@ -113,21 +173,42 @@ public abstract class DataStoreTypes {
             return new PersistentItem(id, timestamp, isArchived, json);
         }
 
+        /**
+         * return unique id of PersistentItem
+         *
+         * @return a string
+         */
         @Override
         public String getId() {
             return id;
         }
 
+        /**
+         * return true if it's an archived object
+         *
+         * @return true if it's an archived object
+         */
         @Override
         public boolean isArchived() {
             return isArchived;
         }
 
+        /**
+         * return the version number, Ordinarily it's a timestamped value
+         *
+         * @return a long value
+         */
         @Override
         public Long getTimestamp() {
             return timestamp;
         }
 
+        /**
+         * return the type of PersistentItem
+         *
+         * @return a int
+         * @see co.featureflags.server.DataModel.TimestampData
+         */
         @Override
         public Integer getType() {
             return FFC_PERSISTENT_VDATA;

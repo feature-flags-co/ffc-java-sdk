@@ -1,6 +1,6 @@
 package co.featureflags.server;
 
-import co.featureflags.commons.json.JsonHelper;
+import co.featureflags.commons.model.AllFlagStates;
 import co.featureflags.commons.model.EvalDetail;
 import co.featureflags.commons.model.FFCUser;
 import co.featureflags.commons.model.FlagState;
@@ -10,13 +10,12 @@ import co.featureflags.server.exterior.DefaultSender;
 import co.featureflags.server.exterior.FFCClient;
 import co.featureflags.server.exterior.HttpConfig;
 import com.google.common.io.Resources;
-import com.google.common.reflect.TypeToken;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 
 abstract class Demos {
@@ -38,6 +37,7 @@ abstract class Demos {
 
 
             FFCConfig config = new FFCConfig.Builder()
+                    .offline(false)
                     .updateProcessorFactory(streamingBuilder)
                     .insightProcessorFactory(insightProcessorBuilder)
                     .build();
@@ -57,11 +57,16 @@ abstract class Demos {
                 try {
                     String[] words = line.split("/");
                     user = new FFCUser.Builder(words[0]).build();
+
                     Instant start = Instant.now();
                     FlagState<String> res = client.variationDetail(words[1], user, "Not Found");
                     Instant end = Instant.now();
                     System.out.println("result is " + res);
                     monitoringPerf("evaluate", start, end);
+                    Random rd = new Random();
+                    if (rd.nextBoolean()) {
+                        client.trackMetric(user, "click2pay");
+                    }
                 } catch (Exception e) {
                     break;
                 }
@@ -147,7 +152,7 @@ abstract class Demos {
                     String jsonBody = params.jsonfy();
                     System.out.println(jsonBody);
                     String jsonResult = sender.postJson("http://localhost:8080/api/public/feature-flag/variation", jsonBody);
-                    EvalDetail<String> res = EvalDetail.fromJson(jsonResult, String.class);
+                    FlagState<String> res = FlagState.fromJson(jsonResult, String.class);
                     System.out.println("result is " + res);
                 } catch (Exception e) {
                     break;
@@ -182,9 +187,8 @@ abstract class Demos {
                     String jsonBody = params.jsonfy();
                     System.out.println(jsonBody);
                     String jsonResult = sender.postJson("http://localhost:8080/api/public/feature-flag/variations", jsonBody);
-                    List<EvalDetail<String>> res = JsonHelper.deserialize(jsonResult, new TypeToken<List<EvalDetail<String>>>() {
-                    }.getType());
-                    for (EvalDetail<String> ed : res) {
+                    AllFlagStates<String> res = AllFlagStates.fromJson(jsonResult, String.class);
+                    for (EvalDetail<String> ed : res.getData()) {
                         System.out.println(ed);
                     }
                 } catch (Exception e) {

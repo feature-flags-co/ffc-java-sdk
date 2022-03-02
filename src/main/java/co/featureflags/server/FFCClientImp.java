@@ -310,7 +310,7 @@ public final class FFCClientImp implements FFCClient {
 
     @Override
     public boolean initializeFromExternalJson(String json) {
-        if (offline) {
+        if (offline && StringUtils.isNotBlank(json)) {
             DataModel.All all = JsonHelper.deserialize(json, DataModel.All.class);
             if (all.isProcessData()) {
                 DataModel.Data allData = all.data();
@@ -378,5 +378,58 @@ public final class FFCClientImp implements FFCClient {
             errorString = REASON_ERROR;
         }
         return AllFlagStates.of(success, errorString, builder.build());
+    }
+
+    @Override
+    public void flush() {
+        this.insightProcessor.flush();
+    }
+
+    @Override
+    public void trackMetric(FFCUser user, String eventName) {
+        trackMetric(user, eventName, 1.0);
+    }
+
+    @Override
+    public void trackMetric(FFCUser user, String eventName, double metricValue) {
+        if (user == null || StringUtils.isBlank(eventName) || metricValue <= 0) {
+            Loggers.CLIENT.warn("event/user/metric invalid");
+            return;
+        }
+        InsightTypes.Event event = InsightTypes.MetricEvent.of(user)
+                .add(InsightTypes.Metric.of(eventName, metricValue));
+        insightProcessor.send(event);
+    }
+
+    @Override
+    public void trackMetrics(FFCUser user, String... eventNames) {
+        if (user == null || eventNames == null || eventNames.length == 0) {
+            Loggers.CLIENT.warn("user/events invalid");
+            return;
+        }
+        InsightTypes.Event event = InsightTypes.MetricEvent.of(user);
+        for (String eventName : eventNames) {
+            if (StringUtils.isNotBlank(eventName)) {
+                event.add(InsightTypes.Metric.of(eventName, 1.0));
+            }
+        }
+        insightProcessor.send(event);
+    }
+
+    @Override
+    public void trackMetrics(FFCUser user, Map<String, Double> metrics) {
+        if (user == null || metrics == null || metrics.isEmpty()) {
+            Loggers.CLIENT.warn("user/metrics invalid");
+            return;
+        }
+        InsightTypes.Event event = InsightTypes.MetricEvent.of(user);
+        for (Map.Entry<String, Double> entry : metrics.entrySet()) {
+            String eventName = entry.getKey();
+            Double metricValue = entry.getValue();
+            if (StringUtils.isNotBlank(eventName) && metricValue != null && metricValue > 0D) {
+                event.add(InsightTypes.Metric.of(eventName, metricValue));
+            }
+        }
+        insightProcessor.send(event);
     }
 }

@@ -41,7 +41,11 @@ abstract class Insights {
         @Override
         public void send(InsightTypes.Event event) {
             if (!closed.get() && event != null) {
-                putEventAsync(InsightTypes.InsightMessageType.EVENT, event);
+                if (event instanceof InsightTypes.FlagEvent) {
+                    putEventAsync(InsightTypes.InsightMessageType.FLAGS, event);
+                } else if (event instanceof InsightTypes.MetricEvent) {
+                    putEventAsync(InsightTypes.InsightMessageType.METRICS, event);
+                }
             }
         }
 
@@ -107,10 +111,7 @@ abstract class Insights {
         private final AtomicInteger busyFlushPaypladThreadNum;
         private final InsightTypes.Event[] payload;
 
-        public FlushPaypladRunner(InsightTypes.InsightConfig config,
-                                  Semaphore permits,
-                                  AtomicInteger busyFlushPaypladThreadNum,
-                                  InsightTypes.Event[] payload) {
+        public FlushPaypladRunner(InsightTypes.InsightConfig config, Semaphore permits, AtomicInteger busyFlushPaypladThreadNum, InsightTypes.Event[] payload) {
             this.config = config;
             this.permits = permits;
             this.busyFlushPaypladThreadNum = busyFlushPaypladThreadNum;
@@ -147,19 +148,11 @@ abstract class Insights {
         // permits to flush events
         private final Semaphore permits = new Semaphore(MAX_FLUSH_WORKERS_NUMBER);
 
-        public EventDispatcher(InsightTypes.InsightConfig config,
-                               BlockingQueue<InsightTypes.InsightMessage> inbox) {
+        public EventDispatcher(InsightTypes.InsightConfig config, BlockingQueue<InsightTypes.InsightMessage> inbox) {
             this.config = config;
             this.inbox = inbox;
-            this.threadPoolExecutor = new ThreadPoolExecutor(MAX_FLUSH_WORKERS_NUMBER,
-                    MAX_FLUSH_WORKERS_NUMBER,
-                    0L,
-                    TimeUnit.MILLISECONDS,
-                    new LinkedBlockingQueue<>(MAX_QUEUE_SIZE),
-                    Utils.createThreadFactory("flush-payload-worker-%d", true),
-                    new ThreadPoolExecutor.CallerRunsPolicy());
-            Thread mainThread = Utils.createThreadFactory("event-dispatcher", true)
-                    .newThread(this::dispatchEvents);
+            this.threadPoolExecutor = new ThreadPoolExecutor(MAX_FLUSH_WORKERS_NUMBER, MAX_FLUSH_WORKERS_NUMBER, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(MAX_QUEUE_SIZE), Utils.createThreadFactory("flush-payload-worker-%d", true), new ThreadPoolExecutor.CallerRunsPolicy());
+            Thread mainThread = Utils.createThreadFactory("event-dispatcher", true).newThread(this::dispatchEvents);
             mainThread.start();
 
         }
@@ -175,7 +168,8 @@ abstract class Insights {
                     for (InsightTypes.InsightMessage message : messages) {
                         try {
                             switch (message.getType()) {
-                                case EVENT:
+                                case FLAGS:
+                                case METRICS:
                                     putEventToNextBuffer(message.getEvent());
                                     break;
                                 case FLUSH:
@@ -214,8 +208,11 @@ abstract class Insights {
             if (closed.get()) {
                 return;
             }
-            Loggers.EVENTS.debug("put event to buffer");
-            eventsBufferToNextFlush.add(event);
+            if (event.isSendEvent()) {
+                Loggers.EVENTS.debug("put event to buffer");
+                eventsBufferToNextFlush.add(event);
+            }
+
         }
 
         private void triggerFlush() {
