@@ -99,7 +99,7 @@ public final class FFCClientImp implements FFCClient {
      *     FFCConfig config = new FFCConfig.Builder()
      *         .startWait(Duration.ZERO)
      *         .build();
-     *     FFCClient client = new FFCClient(sdkKey, config);
+     *     FFCClient client = new FFCClientImp(sdkKey, config);
      *
      *     // later, when you want to wait for initialization to finish:
      *     boolean inited = client.getDataUpdateStatusProvider().waitForOKState(Duration.ofSeconds(15))

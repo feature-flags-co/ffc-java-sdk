@@ -84,7 +84,7 @@ continue trying to connect in the background unless there has been an `java.net.
 client(using `close()`). You can detect whether initialization has succeeded by calling `isInitialized()`.
 
 ```
-FFCClient client = new FFCClient(sdkKey, config);
+FFCClient client = new FFCClientImp(sdkKey, config);
 if(client.isInitialized()){
 // do whatever is appropriate
 }
@@ -97,7 +97,7 @@ point, you can use `getDataUpdateStatusProvider()`, which provides an asynchrono
 FFCConfig config = new FFCConfig.Builder()
              .startWait(Duration.ZERO)
              .build();
-FFCClient client = new FFCClient(sdkKey, config);
+FFCClient client = new FFCClientImp(sdkKey, config);
     
 // later, when you want to wait for initialization to finish:
 boolean inited = client.getDataUpdateStatusProvider().waitForOKState(Duration.ofSeconds(15))
@@ -130,10 +130,10 @@ FFCConfig config = new FFCConfig.Builder()
             .startWaitTime(Duration.ZERO)
             .offline(false)
             .build()
-FFCClient client = new FFCClient(sdkKey, config);
+FFCClient client = new FFCClientImp(sdkKey, config);
 
 // default configuration
-FFCClient client = new FFCClient(sdkKey);
+FFCClient client = new FFCClientImp(sdkKey);
 ```
 
 `FFCConfig` provides advanced configuration options for setting the SDK component or you want to customize the behavior
@@ -174,7 +174,7 @@ If Developers would like to know what the implementation is, they can read the j
 using a factory object. The default is `Factory#insightProcessorFactory()`. If Developers would like to know what the implementation is, 
 they can read the javadoc and source code.
 
-###Evaluation
+### Evaluation
 
 SDK calculates the value of a feature flag for a given user, and returns a flag vlaue/an object that describes the way 
 that the value was determined.
@@ -189,17 +189,21 @@ You may also define custom properties with arbitrary names and values.
     FFCClient client = new FFCClientImp(envSecret);
     
     // FFUser creation
-    FFCClient user = new FFCClient.Builder("key")
+    FFCUser user = new FFCUser.Builder("key")
         .userName("name")
         .country("country")
         .email("email@xxx.com")
         .custom("property", "value")
         .build()
     
-    // Evaluation details
-    FlagState<String> res = client.variationDetail("flag key", user, "Not Found");
-    // Flag value
-    String res = client.variation("flag key", user, "Not Found");
+    // be sure that SDK is initialized
+    // this is not required
+    if(client.isInitialized()){
+        // Evaluation details
+        FlagState<String> res = client.variationDetail("flag key", user, "Not Found");
+        // Flag value
+        String res = client.variation("flag key", user, "Not Found");
+    }
     
 ```
 
