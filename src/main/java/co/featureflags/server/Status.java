@@ -3,7 +3,6 @@ package co.featureflags.server;
 import co.featureflags.server.exterior.DataStorage;
 import co.featureflags.server.exterior.DataStoreTypes;
 import com.google.common.base.MoreObjects;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.time.Duration;
@@ -22,9 +21,40 @@ public abstract class Status {
     public static final String UNKNOWN_ERROR = "Unknown error";
     public static final String UNKNOWN_CLOSE_CODE = "Unknown close code";
 
-
+    /**
+     * possible values for {@link co.featureflags.server.exterior.UpdateProcessor}
+     */
     public enum StateType {
-        INITIALIZING, OK, INTERRUPTED, OFF
+        /**
+         * The initial state of the data source when the SDK is being initialized.
+         * <p>
+         * If it encounters an error that requires it to retry initialization, the state will remain at
+         * {@link #INITIALIZING} until it either succeeds and becomes {@link #OK}, or permanently fails and
+         * becomes {@link #OFF}.
+         */
+        INITIALIZING,
+        /**
+         * Indicates that the update processing is currently operational and has not had any problems since the
+         * last time it received data.
+         * <p>
+         * In streaming mode, this means that there is currently an open stream connection and that at least
+         * one initial message has been received on the stream.
+         */
+        OK,
+        /**
+         * Indicates that the update processing encountered an error that it will attempt to recover from.
+         * <p>
+         * In streaming mode, this means that the stream connection failed, or had to be dropped due to some
+         * other error, and will be retried after a backoff delay.
+         */
+        INTERRUPTED,
+        /**
+         * Indicates that the update processing has been permanently shut down.
+         * <p>
+         * This could be because it encountered an unrecoverable error or because the SDK client was
+         * explicitly shut down.
+         */
+        OFF
     }
 
     public static class ErrorInfo implements Serializable {
@@ -144,17 +174,71 @@ public abstract class Status {
      * so that the SDK can perform any other necessary operations that should perform around data updating.
      * <p>
      * if you overwrite the our default Update Processor,you should integrate{@link DataUpdator} to push data
-     * and maintain the processor status in your own code
+     * and maintain the processor status in your own code, but note that the implementation of this interface is not public
      */
     public interface DataUpdator {
+        /**
+         * Overwrites the storage with a set of items for each collection, if the new version > the old one
+         * <p>
+         * If the underlying data store throws an error during this operation, the SDK will catch it, log it,
+         * and set the data source state to {@link StateType#INTERRUPTED}.It will not rethrow the error to other level
+         * but will simply return {@code false} to indicate that the operation failed.
+         *
+         * @param allData map of {@link co.featureflags.server.exterior.DataStoreTypes.Category} and their data set {@link co.featureflags.server.exterior.DataStoreTypes.Item}
+         * @param version the version of dataset, Ordinarily it's a timestamp.
+         * @return true if the update succeeded
+         */
         boolean init(Map<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> allData, Long version);
 
+        /**
+         * Updates or inserts an item in the specified collection. For updates, the object will only be
+         * updated if the existing version is less than the new version; for inserts, if the version > the existing one, it will replace
+         * the existing one.
+         * <p>
+         * If the underlying data store throws an error during this operation, the SDK will catch it, log it,
+         * and set the data source state to {@link StateType#INTERRUPTED}.It will not rethrow the error to other level
+         * but will simply return {@code false} to indicate that the operation failed.
+         *
+         * @param category specifies which collection to use
+         * @param key      the unique key of the item in the collection
+         * @param item     the item to insert or update
+         * @param version  the version of item
+         * @return true if success
+         */
         boolean upsert(DataStoreTypes.Category category, String key, DataStoreTypes.Item item, Long version);
 
+        /**
+         * Informs the SDK of a change in the {@link co.featureflags.server.exterior.UpdateProcessor} status.
+         * <p>
+         * {@link co.featureflags.server.exterior.UpdateProcessor} implementations should use this method
+         * if they have any concept of being in a valid state, a temporarily disconnected state, or a permanently stopped state.
+         * <p>
+         * If {@code newState} is different from the previous state, and/or {@code newError} is non-null, the
+         * SDK will start returning the new status (adding a timestamp for the change) from
+         * {@link DataUpdateStatusProvider#getState()}, and will trigger status change events to any
+         * registered listeners.
+         * <p>
+         * A special case is that if {@code newState} is {@link StateType#INTERRUPTED},
+         * but the previous state was {@link StateType#INITIALIZING}, the state will remain at {@link StateType#INITIALIZING}
+         * because {@link StateType#INTERRUPTED} is only meaningful after a successful startup.
+         *
+         * @param newState the data storage state
+         * @param message  the data source state
+         */
         void updateStatus(StateType newState, ErrorInfo message);
 
+        /**
+         * return the latest version of {@link DataStorage}
+         *
+         * @return a long value
+         */
         long getVersion();
 
+        /**
+         * return true if the {@link DataStorage} is well initialized
+         *
+         * @return true if the {@link DataStorage} is well initialized
+         */
         boolean storageInitialized();
 
     }
@@ -242,7 +326,8 @@ public abstract class Status {
 
         // blocking util you get the desired state, time out reaches or thread is interrupted
         boolean waitFor(StateType state, Duration timeout) throws InterruptedException {
-            Instant deadline = Instant.now().plus(timeout);
+            Duration timeout1 = timeout == null ? Duration.ZERO : timeout;
+            Instant deadline = Instant.now().plus(timeout1);
             synchronized (lockObject) {
                 while (true) {
                     StateType curr = currentState.getStateType();
@@ -252,7 +337,7 @@ public abstract class Status {
                     if (curr == StateType.OFF) {
                         return false;
                     }
-                    if (timeout.isZero() || timeout.isNegative()) {
+                    if (timeout1.isZero() || timeout1.isNegative()) {
                         lockObject.wait();
                     } else {
                         // block the consumer thread util getting desired state
@@ -276,12 +361,66 @@ public abstract class Status {
 
     }
 
+    /**
+     * An interface to query the status of a {@link co.featureflags.server.exterior.UpdateProcessor}
+     * With the build-in implementation, this might be useful if you want to use SDK without waiting for it to initialize
+     */
     public interface DataUpdateStatusProvider {
 
+        /**
+         * Returns the current status of the {@link co.featureflags.server.exterior.UpdateProcessor}
+         * <p>
+         * All of the {@link co.featureflags.server.exterior.UpdateProcessor} implementations are guaranteed to update this status
+         * whenever they successfully initialize, encounter an error, or recover after an error.
+         * <p>
+         * For a custom implementation, it is the responsibility of the data source to report its status via {@link DataUpdator};
+         * if it does not do so, the status will always be reported as
+         * {@link StateType#INITIALIZING}.
+         *
+         * @return the latest status; will never be null
+         */
         State getState();
 
+        /**
+         * A method for waiting for a desired connection state after bootstrapping
+         * <p>
+         * If the current state is already {@code desiredState} when this method is called, it immediately returns.
+         * Otherwise, it blocks until 1. the state has become {@code desiredState}, 2. the state has become
+         * {@link StateType#OFF} , 3. the specified timeout elapses, or 4. the current thread is deliberately interrupted with {@link Thread#interrupt()}.
+         * <p>
+         * A scenario in which this might be useful is if you want to use SDK without waiting
+         * for it to initialize, and then wait for initialization at a later time or on a different point:
+         * <pre><code>
+         *     FFCConfig config = new FFCConfig.Builder()
+         *         .startWait(Duration.ZERO)
+         *         .build();
+         *     FFCClient client = new FFCClient(sdkKey, config);
+         *
+         *     // later, when you want to wait for initialization to finish:
+         *     boolean inited = client.getDataUpdateStatusProvider().waitFor(StateType.OK, Duration.ofSeconds(15))
+         *     if (!inited) {
+         *         // do whatever is appropriate if initialization has timed out
+         *     }
+         * </code></pre>
+         *
+         * @param state   the desired connection state (normally this would be {@link StateType#OK})
+         * @param timeout the maximum amount of time to wait-- or {@link Duration#ZERO} to block indefinitely
+         *                (unless the thread is explicitly interrupted)
+         * @return true if the connection is now in the desired state; false if it timed out, or if the state
+         * changed to 2 and that was not the desired state
+         * @throws InterruptedException if {@link Thread#interrupt()} was called on this thread while blocked
+         */
         boolean waitFor(StateType state, Duration timeout) throws InterruptedException;
 
+        /**
+         * alias of {@link #waitFor(StateType, Duration)} in {@link StateType#OK}
+         *
+         * @param timeout the maximum amount of time to wait-- or {@link Duration#ZERO} to block indefinitely
+         *                (unless the thread is explicitly interrupted)
+         * @return true if the connection is now in {@link StateType#OK}; false if it timed out, or if the state
+         * changed to {@link StateType#OFF} and that was not the desired state
+         * @throws InterruptedException
+         */
         boolean waitForOKState(Duration timeout) throws InterruptedException;
 
     }

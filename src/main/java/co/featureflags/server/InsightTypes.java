@@ -53,7 +53,7 @@ public abstract class InsightTypes {
         @Override
         public Event add(Object element) {
             FlagEventVariation variation = (FlagEventVariation) element;
-            if (!variation.getVariation().getIndex().equals(NO_EVAL_RES)) {
+            if (variation != null && !variation.getVariation().getIndex().equals(NO_EVAL_RES)) {
                 userVariations.add(variation);
             }
             return this;
@@ -65,6 +65,32 @@ public abstract class InsightTypes {
         }
     }
 
+    @JsonAdapter(MetricEventSerializer.class)
+    final static class MetricEvent extends Event {
+        private final List<Metric> metrics = new ArrayList<>();
+
+        MetricEvent(FFCUser user) {
+            super(user);
+        }
+
+        static MetricEvent of(FFCUser user) {
+            return new MetricEvent(user);
+        }
+
+        @Override
+        public boolean isSendEvent() {
+            return user != null && !metrics.isEmpty();
+        }
+
+        @Override
+        public Event add(Object element) {
+            Metric metric = (Metric) element;
+            if (metric != null) {
+                metrics.add(metric);
+            }
+            return this;
+        }
+    }
 
     static final class FlagEventVariation {
         private final String featureFlagKeyName;
@@ -94,23 +120,49 @@ public abstract class InsightTypes {
         }
     }
 
+    static final class Metric {
+        private final String route = "index/metric";
+        private final String type = "CustomEvent";
+        private final String eventName;
+        private final Double numericValue;
+        private final String appType = "javaserverside";
+
+        Metric(String eventName, Double numericValue) {
+            this.eventName = eventName;
+            this.numericValue = numericValue;
+        }
+
+        static Metric of(String eventName, Double numericValue) {
+            return new Metric(eventName, numericValue == null ? 1.0D : numericValue);
+        }
+
+        public String getEventName() {
+            return eventName;
+        }
+
+        public Double getNumericValue() {
+            return numericValue;
+        }
+
+        public String getRoute() {
+            return route;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public String getAppType() {
+            return appType;
+        }
+    }
+
     final static class FlagEventSerializer implements JsonSerializer<FlagEvent> {
+
         @Override
         public JsonElement serialize(FlagEvent flagEvent, Type type, JsonSerializationContext jsonSerializationContext) {
             FFCUser user = flagEvent.getUser();
-            JsonObject json = new JsonObject();
-            json.addProperty("userName", user.getUserName());
-            json.addProperty("email", user.getEmail());
-            json.addProperty("country", user.getCountry());
-            json.addProperty("userKeyId", user.getKey());
-            JsonArray array = new JsonArray();
-            for (Map.Entry<String, String> keyItem : user.getCustom().entrySet()) {
-                JsonObject p = new JsonObject();
-                p.addProperty("name", keyItem.getKey());
-                p.addProperty("value", keyItem.getValue());
-                array.add(p);
-            }
-            json.add("customizedProperties", array);
+            JsonObject json = serializeUser(user);
             JsonArray array1 = new JsonArray();
             for (FlagEventVariation variation : flagEvent.userVariations) {
                 JsonObject var = new JsonObject();
@@ -129,8 +181,47 @@ public abstract class InsightTypes {
         }
     }
 
+    final static class MetricEventSerializer implements JsonSerializer<MetricEvent> {
+        @Override
+        public JsonElement serialize(MetricEvent metricEvent, Type type, JsonSerializationContext jsonSerializationContext) {
+            FFCUser user = metricEvent.getUser();
+            JsonObject json = serializeUser(user);
+            JsonArray array1 = new JsonArray();
+            for (Metric metric : metricEvent.metrics) {
+                JsonObject var = new JsonObject();
+                var.addProperty("route", metric.getRoute());
+                var.addProperty("type", metric.getType());
+                var.addProperty("eventName", metric.getEventName());
+                var.addProperty("numericValue", metric.getNumericValue());
+                var.addProperty("appType", metric.getAppType());
+                array1.add(var);
+            }
+            json.add("metrics", array1);
+            return json;
+        }
+    }
+
+    private static JsonObject serializeUser(FFCUser user) {
+        JsonObject json = new JsonObject();
+        JsonObject json1 = new JsonObject();
+        json1.addProperty("userName", user.getUserName());
+        json1.addProperty("email", user.getEmail());
+        json1.addProperty("country", user.getCountry());
+        json1.addProperty("keyId", user.getKey());
+        JsonArray array = new JsonArray();
+        for (Map.Entry<String, String> keyItem : user.getCustom().entrySet()) {
+            JsonObject p = new JsonObject();
+            p.addProperty("name", keyItem.getKey());
+            p.addProperty("value", keyItem.getValue());
+            array.add(p);
+        }
+        json1.add("customizedProperties", array);
+        json.add("user", json1);
+        return json;
+    }
+
     enum InsightMessageType {
-        EVENT, FLUSH, SHUTDOWN
+        FLAGS, FLUSH, SHUTDOWN, METRICS,
     }
 
     static final class InsightMessage {
@@ -178,7 +269,7 @@ public abstract class InsightTypes {
 
     static final class InsightConfig {
 
-        private static final String EVENT_PATH = "/api/public/analytics/track/feature-flags";
+        private static final String EVENT_PATH = "/api/public/track";
 
         final InsightEventSender sender;
         final String eventUrl;

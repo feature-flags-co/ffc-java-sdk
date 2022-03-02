@@ -17,20 +17,46 @@ public abstract class DataModel {
     private DataModel() {
     }
 
+    /**
+     * interface for the object to represent a versioned/timestamped data
+     */
     public interface TimestampData {
         Integer FFC_FEATURE_FLAG = 100;
         Integer FFC_ARCHIVED_VDATA = 200;
         Integer FFC_PERSISTENT_VDATA = 300;
 
+        /**
+         * return the unique id
+         *
+         * @return a string
+         */
         String getId();
 
+        /**
+         * return true if object is archived
+         *
+         * @return true if object is archived
+         */
         boolean isArchived();
 
+        /**
+         * return the version/timestamp of the object
+         *
+         * @return a long value
+         */
         Long getTimestamp();
 
+        /**
+         * return the type of versioned/timestamped object
+         *
+         * @return an integer
+         */
         Integer getType();
     }
 
+    /**
+     * the object is an implementation of{@link TimestampData}, to represent the archived data
+     */
     public final static class ArchivedTimestampData implements TimestampData {
         private final String id;
         private final Long timestamp;

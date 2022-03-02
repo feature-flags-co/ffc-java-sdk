@@ -1,13 +1,12 @@
 package co.featureflags.server.exterior;
 
 import co.featureflags.commons.model.AllFlagStates;
-import co.featureflags.commons.model.EvalDetail;
 import co.featureflags.commons.model.FFCUser;
 import co.featureflags.commons.model.FlagState;
 import co.featureflags.server.Status;
 
 import java.io.Closeable;
-import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -185,4 +184,42 @@ public interface FFCClient extends Closeable {
      * @return an {@link FlagState} object
      */
     FlagState<Long> longVariationDetail(String featureFlagKey, FFCUser user, Long defaultValue);
+
+    /**
+     * Flushes all pending events.
+     */
+    void flush();
+
+    /**
+     * tracks that a user performed an event and provides a default numeric value for custom metrics
+     *
+     * @param user      the user that performed the event
+     * @param eventName the name of the event
+     */
+    void trackMetric(FFCUser user, String eventName);
+
+    /**
+     * tracks that a user performed an event, and provides an additional numeric value for custom metrics.
+     *
+     * @param user        the user that performed the event
+     * @param eventName   the name of the event
+     * @param metricValue a numeric value used by the experimentation feature in numeric custom metrics.
+     */
+    void trackMetric(FFCUser user, String eventName, double metricValue);
+
+    /**
+     * tracks that a user performed a series of events with default numeric value for custom metrics
+     *
+     * @param user       the user that performed the event
+     * @param eventNames event names
+     */
+    void trackMetrics(FFCUser user, String... eventNames);
+
+    /**
+     * tracks that a user performed a series of events
+     *
+     * @param user    the user that performed the event
+     * @param metrics event name and numeric value in K/V
+     */
+    void trackMetrics(FFCUser user, Map<String, Double> metrics);
 }

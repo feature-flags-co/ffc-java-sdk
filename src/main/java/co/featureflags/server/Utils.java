@@ -76,11 +76,7 @@ public abstract class Utils {
         }
 
         if (httpConfig.sslSocketFactory() != null) {
-            if (httpConfig.trustManager() != null) {
-                builder.sslSocketFactory(httpConfig.sslSocketFactory(), httpConfig.trustManager());
-            } else {
-                builder.sslSocketFactory(httpConfig.sslSocketFactory());
-            }
+            builder.sslSocketFactory(httpConfig.sslSocketFactory(), httpConfig.trustManager());
         }
 
         if (httpConfig.proxy() != null) {
