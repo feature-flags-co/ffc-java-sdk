@@ -20,13 +20,14 @@ public abstract class Status {
     public static final String RUNTIME_ERROR = "Runtime error";
     public static final String UNKNOWN_ERROR = "Unknown error";
     public static final String UNKNOWN_CLOSE_CODE = "Unknown close code";
+    public static final String WEBSOCKET_ERROR = "WebSocket error";
 
     /**
      * possible values for {@link co.featureflags.server.exterior.UpdateProcessor}
      */
     public enum StateType {
         /**
-         * The initial state of the data source when the SDK is being initialized.
+         * The initial state of the update processing when the SDK is being initialized.
          * <p>
          * If it encounters an error that requires it to retry initialization, the state will remain at
          * {@link #INITIALIZING} until it either succeeds and becomes {@link #OK}, or permanently fails and
@@ -215,15 +216,14 @@ public abstract class Status {
          * <p>
          * If {@code newState} is different from the previous state, and/or {@code newError} is non-null, the
          * SDK will start returning the new status (adding a timestamp for the change) from
-         * {@link DataUpdateStatusProvider#getState()}, and will trigger status change events to any
-         * registered listeners.
+         * {@link DataUpdateStatusProvider#getState()}.
          * <p>
          * A special case is that if {@code newState} is {@link StateType#INTERRUPTED},
          * but the previous state was {@link StateType#INITIALIZING}, the state will remain at {@link StateType#INITIALIZING}
          * because {@link StateType#INTERRUPTED} is only meaningful after a successful startup.
          *
-         * @param newState the data storage state
-         * @param message  the data source state
+         * @param newState the new state of {@link co.featureflags.server.exterior.UpdateProcessor}
+         * @param message  an error message or null
          */
         void updateStatus(StateType newState, ErrorInfo message);
 
@@ -298,14 +298,15 @@ public abstract class Status {
             }
             synchronized (lockObject) {
                 StateType oldOne = currentState.getStateType();
+                StateType newState1 = newState;
                 // interruped state is only meaningful after initialization
-                if (newState == StateType.INTERRUPTED && oldOne == StateType.INITIALIZING) {
-                    newState = StateType.INITIALIZING;
+                if (newState1 == StateType.INTERRUPTED && oldOne == StateType.INITIALIZING) {
+                    newState1 = StateType.INITIALIZING;
                 }
 
-                if (newState != oldOne || message != null) {
-                    Instant stateSince = newState == oldOne ? currentState.getStateSince() : Instant.now();
-                    currentState = new State(newState, stateSince, message);
+                if (newState1 != oldOne || message != null) {
+                    Instant stateSince = newState1 == oldOne ? currentState.getStateSince() : Instant.now();
+                    currentState = new State(newState1, stateSince, message);
                     lockObject.notifyAll();
                 }
             }
@@ -374,8 +375,7 @@ public abstract class Status {
          * whenever they successfully initialize, encounter an error, or recover after an error.
          * <p>
          * For a custom implementation, it is the responsibility of the data source to report its status via {@link DataUpdator};
-         * if it does not do so, the status will always be reported as
-         * {@link StateType#INITIALIZING}.
+         * if it does not do so, the status will always be reported as {@link StateType#INITIALIZING}.
          *
          * @return the latest status; will never be null
          */

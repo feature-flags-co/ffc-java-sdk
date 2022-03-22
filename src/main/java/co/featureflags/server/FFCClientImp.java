@@ -33,6 +33,7 @@ import static co.featureflags.server.Evaluator.REASON_FLAG_NOT_FOUND;
 import static co.featureflags.server.Evaluator.REASON_USER_NOT_SPECIFIED;
 import static co.featureflags.server.Evaluator.REASON_WRONG_TYPE;
 import static co.featureflags.server.exterior.DataStoreTypes.FEATURES;
+import static co.featureflags.server.exterior.DataStoreTypes.SEGMENTS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -135,7 +136,11 @@ public final class FFCClientImp implements FFCClient {
             DataStoreTypes.Item item = this.storage.get(FEATURES, key);
             return item == null ? null : (DataModel.FeatureFlag) item.item();
         };
-        this.evaluator = new EvaluatorImp(flagGetter);
+        Evaluator.Getter<DataModel.Segment> segmentGetter = key -> {
+            DataStoreTypes.Item item = this.storage.get(SEGMENTS, key);
+            return item == null ? null : (DataModel.Segment) item.item();
+        };
+        this.evaluator = new EvaluatorImp(flagGetter, segmentGetter);
         //data updator
         Status.DataUpdatorImpl dataUpdatorImpl = new Status.DataUpdatorImpl(this.storage);
         this.dataUpdator = dataUpdatorImpl;

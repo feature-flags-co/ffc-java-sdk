@@ -46,6 +46,8 @@ abstract class Evaluator {
     protected static final String IS_FALSE_CLAUSE = "IsFalse";
     protected static final String MATCH_REGEX_CLAUSE = "MatchRegex";
     protected static final String NOT_MATCH_REGEX_CLAUSE = "NotMatchRegex";
+    protected static final String IS_IN_SEGMENT_CLAUSE = "User is in segment";
+    protected static final String NOT_IN_SEGMENT_CLAUSE = "User is not in segment";
 
 
     protected static final String FLAG_DISABLE_STATS = "Disabled";
@@ -53,8 +55,12 @@ abstract class Evaluator {
 
     protected final Getter<DataModel.FeatureFlag> flagGetter;
 
-    Evaluator(Getter<DataModel.FeatureFlag> flagGetter) {
+    protected final Getter<DataModel.Segment> segmentGetter;
+
+    Evaluator(Getter<DataModel.FeatureFlag> flagGetter,
+              Getter<DataModel.Segment> segmentGetter) {
         this.flagGetter = flagGetter;
+        this.segmentGetter = segmentGetter;
     }
 
     abstract EvalResult evaluate(DataModel.FeatureFlag flag, FFCUser user, InsightTypes.Event event);

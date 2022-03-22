@@ -21,12 +21,12 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.io.EOFException;
+import java.io.IOException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -42,6 +42,7 @@ import static co.featureflags.server.Status.REQUEST_INVALID_ERROR;
 import static co.featureflags.server.Status.RUNTIME_ERROR;
 import static co.featureflags.server.Status.UNKNOWN_CLOSE_CODE;
 import static co.featureflags.server.Status.UNKNOWN_ERROR;
+import static co.featureflags.server.Status.WEBSOCKET_ERROR;
 
 final class Streaming implements UpdateProcessor {
 
@@ -176,43 +177,40 @@ final class Streaming implements UpdateProcessor {
         return builder.build();
     }
 
-    private Callable<Boolean> processDateAsync(final DataModel.Data data) {
-        return () -> {
-            boolean opOK = false;
-            String eventType = data.getEventType();
-            Long version = data.getTimestamp();
-            Map<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> updatedData = data.toStorageType();
-            if (FULL_OPS.equalsIgnoreCase(eventType)) {
-                boolean fullOK = updator.init(updatedData, version);
-                opOK = fullOK;
-            } else if (PATCH_OPS.equalsIgnoreCase(eventType)) {
-                // streaming patch is a real time update
-                // patch data contains only one item in just one category.
-                // no data update is considered as a good operation
-                boolean patchOK = true;
-                for (Map.Entry<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> entry : updatedData.entrySet()) {
-                    DataStoreTypes.Category category = entry.getKey();
-                    for (Map.Entry<String, DataStoreTypes.Item> keyItem : entry.getValue().entrySet()) {
-                        patchOK = updator.upsert(category, keyItem.getKey(), keyItem.getValue(), version);
-                    }
+    private Boolean processDateAsync(final DataModel.Data data) {
+        boolean opOK = false;
+        String eventType = data.getEventType();
+        Long version = data.getTimestamp();
+        Map<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> updatedData = data.toStorageType();
+        if (FULL_OPS.equalsIgnoreCase(eventType)) {
+            boolean fullOK = updator.init(updatedData, version);
+            opOK = fullOK;
+        } else if (PATCH_OPS.equalsIgnoreCase(eventType)) {
+            // streaming patch is a real time update
+            // patch data contains only one item in just one category.
+            // no data update is considered as a good operation
+            boolean patchOK = true;
+            for (Map.Entry<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> entry : updatedData.entrySet()) {
+                DataStoreTypes.Category category = entry.getKey();
+                for (Map.Entry<String, DataStoreTypes.Item> keyItem : entry.getValue().entrySet()) {
+                    patchOK = updator.upsert(category, keyItem.getKey(), keyItem.getValue(), version);
                 }
-                opOK = patchOK;
             }
-            if (opOK) {
-                if (initialized.compareAndSet(false, true)) {
-                    initFuture.complete(true);
-                }
-                logger.info("processing data is well done");
-                updator.updateStatus(Status.StateType.OK, null);
-            } else {
-                // reconnect to server to get back data after data storage failed
-                // the reason is gathered by DataUpdator
-                // close code 1001 means peer going away
-                webSocket.close(GOING_AWAY_CLOSE, JUST_RECONN_REASON_REGISTERED);
+            opOK = patchOK;
+        }
+        if (opOK) {
+            if (initialized.compareAndSet(false, true)) {
+                initFuture.complete(true);
             }
-            permits.release();
-            return opOK;
-        };
+            logger.info("processing data is well done");
+            updator.updateStatus(Status.StateType.OK, null);
+        } else {
+            // reconnect to server to get back data after data storage failed
+            // the reason is gathered by DataUpdator
+            // close code 1001 means peer going away
+            webSocket.close(GOING_AWAY_CLOSE, JUST_RECONN_REASON_REGISTERED);
+        }
+        return opOK;
     }
 
     private final class DefaultWebSocketListener extends StreamingWebSocketListener {
@@ -225,7 +223,9 @@ final class Streaming implements UpdateProcessor {
             if (all.isProcessData()) {
                 try {
                     permits.acquire();
-                    storageUpdateExecutor.submit(processDateAsync(all.data()));
+                    CompletableFuture
+                            .supplyAsync(() -> processDateAsync(all.data()), storageUpdateExecutor)
+                            .whenComplete((res, exception) -> permits.release());
                 } catch (InterruptedException ignore) {
                 }
             }
@@ -304,7 +304,10 @@ final class Streaming implements UpdateProcessor {
                         }
                     }
                 }
-                if (errorType == null) {
+                if(!isReconn && t instanceof IOException){
+                    errorType = WEBSOCKET_ERROR;
+                }
+                else if (errorType == null) {
                     errorType = UNKNOWN_ERROR;
                 }
             }

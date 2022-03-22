@@ -56,7 +56,7 @@ abstract class Demos {
                 }
                 try {
                     String[] words = line.split("/");
-                    user = new FFCUser.Builder(words[0]).build();
+                    user = new FFCUser.Builder(words[0]).userName(words[0]).build();
 
                     Instant start = Instant.now();
                     FlagState<String> res = client.variationDetail(words[1], user, "Not Found");
@@ -109,7 +109,7 @@ abstract class Demos {
                 }
                 try {
                     String[] words = line.split("/");
-                    user = new FFCUser.Builder(words[0]).build();
+                    user = new FFCUser.Builder(words[0]).userName(words[0]).build();
                     Instant start = Instant.now();
                     FlagState<String> res = client.variationDetail(words[1], user, "Not Found");
                     Instant end = Instant.now();
@@ -147,7 +147,7 @@ abstract class Demos {
                 }
                 try {
                     String[] words = line.split("/");
-                    user = new FFCUser.Builder(words[0]).build();
+                    user = new FFCUser.Builder(words[0]).userName(words[0]).build();
                     VariationParams params = VariationParams.of(words[1], user);
                     String jsonBody = params.jsonfy();
                     System.out.println(jsonBody);
@@ -182,7 +182,7 @@ abstract class Demos {
                     break;
                 }
                 try {
-                    user = new FFCUser.Builder(userkey).build();
+                    user = new FFCUser.Builder(userkey).userName(userkey).build();
                     VariationParams params = VariationParams.of(null, user);
                     String jsonBody = params.jsonfy();
                     System.out.println(jsonBody);

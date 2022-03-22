@@ -12,6 +12,7 @@ import co.featureflags.server.exterior.InsightProcessor;
 import co.featureflags.server.exterior.InsightProcessorFactory;
 import co.featureflags.server.exterior.UpdateProcessor;
 import co.featureflags.server.exterior.UpdateProcessorFactory;
+import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.Duration;
@@ -82,7 +83,7 @@ abstract class FactoryImp {
 
         @Override
         public Map<String, DataStoreTypes.Item> getAll(DataStoreTypes.Category category) {
-            return null;
+            return ImmutableMap.of();
         }
 
         @Override
