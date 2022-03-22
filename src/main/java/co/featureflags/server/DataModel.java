@@ -24,6 +24,7 @@ public abstract class DataModel {
         Integer FFC_FEATURE_FLAG = 100;
         Integer FFC_ARCHIVED_VDATA = 200;
         Integer FFC_PERSISTENT_VDATA = 300;
+        Integer FFC_SEGMENT = 400;
 
         /**
          * return the unique id
@@ -123,8 +124,7 @@ public abstract class DataModel {
         }
 
         boolean isProcessData() {
-            return "data-sync".equalsIgnoreCase(messageType) && data != null
-                    && ("full".equalsIgnoreCase(data.eventType) || "patch".equalsIgnoreCase(data.eventType));
+            return "data-sync".equalsIgnoreCase(messageType) && data != null && ("full".equalsIgnoreCase(data.eventType) || "patch".equalsIgnoreCase(data.eventType));
         }
     }
 
@@ -136,21 +136,28 @@ public abstract class DataModel {
 
         private final String eventType;
         private final List<FeatureFlag> featureFlags;
+        private final List<Segment> segments;
         private Long timestamp;
 
-        Data(String eventType, List<FeatureFlag> featureFlags) {
+        Data(String eventType, List<FeatureFlag> featureFlags, List<Segment> segments) {
             this.eventType = eventType;
             this.featureFlags = featureFlags;
+            this.segments = segments;
         }
 
         @Override
         public void afterDeserialization() {
-            timestamp = (featureFlags != null)
-                    ? featureFlags.stream().map(flag -> flag.timestamp).max(Long::compare).orElse(0L) : 0L;
+            Long v1 = (featureFlags != null) ? featureFlags.stream().map(flag -> flag.timestamp).max(Long::compare).orElse(0L) : 0L;
+            Long v2 = (segments != null) ? segments.stream().map(segment -> segment.timestamp).max(Long::compare).orElse(0L) : 0L;
+            timestamp = Math.max(v1, v2);
         }
 
         public List<FeatureFlag> getFeatureFlags() {
             return featureFlags == null ? Collections.emptyList() : featureFlags;
+        }
+
+        public List<Segment> getSegments() {
+            return segments == null ? Collections.emptyList() : segments;
         }
 
         public String getEventType() {
@@ -162,12 +169,77 @@ public abstract class DataModel {
         }
 
         Map<DataStoreTypes.Category, Map<String, DataStoreTypes.Item>> toStorageType() {
-            ImmutableMap.Builder<String, DataStoreTypes.Item> newItems = ImmutableMap.builder();
+            ImmutableMap.Builder<String, DataStoreTypes.Item> flags = ImmutableMap.builder();
             for (FeatureFlag flag : getFeatureFlags()) {
                 TimestampData data = flag.isArchived ? flag.toArchivedTimestampData() : flag;
-                newItems.put(data.getId(), new DataStoreTypes.Item(data));
+                flags.put(data.getId(), new DataStoreTypes.Item(data));
             }
-            return ImmutableMap.of(DataStoreTypes.FEATURES, newItems.build());
+            ImmutableMap.Builder<String, DataStoreTypes.Item> segments = ImmutableMap.builder();
+            for (Segment segment : getSegments()) {
+                TimestampData data = segment.isArchived ? segment.toArchivedTimestampData() : segment;
+                segments.put(data.getId(), new DataStoreTypes.Item(data));
+            }
+            return ImmutableMap.of(DataStoreTypes.FEATURES, flags.build(), DataStoreTypes.SEGMENTS, segments.build());
+        }
+    }
+
+    static class Segment implements TimestampData {
+
+        private final String id;
+
+        private final Boolean isArchived;
+
+        private final Long timestamp;
+
+        private final List<String> included;
+
+        private final List<String> excluded;
+
+        Segment(String id, Boolean isArchived, Long timestamp, List<String> included, List<String> excluded) {
+            this.id = id;
+            this.isArchived = isArchived;
+            this.timestamp = timestamp;
+            this.included = included;
+            this.excluded = excluded;
+        }
+
+        @Override
+        public String getId() {
+            return id;
+        }
+
+        @Override
+        public boolean isArchived() {
+            return isArchived != null && isArchived;
+        }
+
+        @Override
+        public Long getTimestamp() {
+            return timestamp;
+        }
+
+        @Override
+        public Integer getType() {
+            return FFC_SEGMENT;
+        }
+
+        public List<String> getIncluded() {
+            return included == null ? Collections.emptyList() : included;
+        }
+
+        public List<String> getExcluded() {
+            return excluded == null ? Collections.emptyList() : excluded;
+        }
+
+        public boolean isMatchUser(String userKeyId) {
+            if (getExcluded().contains(userKeyId)) {
+                return false;
+            }
+            return getIncluded().contains(userKeyId);
+        }
+
+        public TimestampData toArchivedTimestampData() {
+            return new ArchivedTimestampData(this.id, this.timestamp);
         }
     }
 
@@ -187,15 +259,7 @@ public abstract class DataModel {
         @SerializedName("variationOptions")
         private final List<VariationOption> variations;
 
-        FeatureFlag(String id,
-                    Boolean isArchived,
-                    Long timestamp,
-                    Boolean exptIncludeAllRules,
-                    FeatureFlagBasicInfo info,
-                    List<FeatureFlagPrerequisite> prerequisites,
-                    List<FeatureFlagTargetUsersWhoMatchTheseRuleParam> rules,
-                    List<TargetIndividualForVariationOption> targets,
-                    List<VariationOption> variations) {
+        FeatureFlag(String id, Boolean isArchived, Long timestamp, Boolean exptIncludeAllRules, FeatureFlagBasicInfo info, List<FeatureFlagPrerequisite> prerequisites, List<FeatureFlagTargetUsersWhoMatchTheseRuleParam> rules, List<TargetIndividualForVariationOption> targets, List<VariationOption> variations) {
             this.id = id;
             this.isArchived = isArchived;
             this.timestamp = timestamp;
@@ -267,15 +331,7 @@ public abstract class DataModel {
         private final List<VariationOptionPercentageRollout> defaultRulePercentageRollouts;
         private final VariationOption variationOptionWhenDisabled;
 
-        FeatureFlagBasicInfo(String id,
-                             String name,
-                             Integer type,
-                             String keyName,
-                             String status,
-                             Boolean isDefaultRulePercentageRolloutsIncludedInExpt,
-                             Date lastUpdatedTime,
-                             List<VariationOptionPercentageRollout> defaultRulePercentageRollouts,
-                             VariationOption variationOptionWhenDisabled) {
+        FeatureFlagBasicInfo(String id, String name, Integer type, String keyName, String status, Boolean isDefaultRulePercentageRolloutsIncludedInExpt, Date lastUpdatedTime, List<VariationOptionPercentageRollout> defaultRulePercentageRollouts, VariationOption variationOptionWhenDisabled) {
             this.id = id;
             this.name = name;
             this.type = type;
@@ -308,8 +364,7 @@ public abstract class DataModel {
         }
 
         public Boolean isDefaultRulePercentageRolloutsIncludedInExpt() {
-            return isDefaultRulePercentageRolloutsIncludedInExpt == null
-                    ? Boolean.FALSE : isDefaultRulePercentageRolloutsIncludedInExpt;
+            return isDefaultRulePercentageRolloutsIncludedInExpt == null ? Boolean.FALSE : isDefaultRulePercentageRolloutsIncludedInExpt;
         }
 
         public Date getLastUpdatedTime() {
@@ -329,8 +384,7 @@ public abstract class DataModel {
         private final String prerequisiteFeatureFlagId;
         private final VariationOption ValueOptionsVariationValue;
 
-        FeatureFlagPrerequisite(String prerequisiteFeatureFlagId,
-                                VariationOption valueOptionsVariationValue) {
+        FeatureFlagPrerequisite(String prerequisiteFeatureFlagId, VariationOption valueOptionsVariationValue) {
             this.prerequisiteFeatureFlagId = prerequisiteFeatureFlagId;
             ValueOptionsVariationValue = valueOptionsVariationValue;
         }
@@ -351,11 +405,7 @@ public abstract class DataModel {
         private final List<FeatureFlagRuleJsonContent> ruleJsonContent;
         private final List<VariationOptionPercentageRollout> valueOptionsVariationRuleValues;
 
-        FeatureFlagTargetUsersWhoMatchTheseRuleParam(String ruleId,
-                                                     String ruleName,
-                                                     Boolean isIncludedInExpt,
-                                                     List<FeatureFlagRuleJsonContent> ruleJsonContent,
-                                                     List<VariationOptionPercentageRollout> valueOptionsVariationRuleValues) {
+        FeatureFlagTargetUsersWhoMatchTheseRuleParam(String ruleId, String ruleName, Boolean isIncludedInExpt, List<FeatureFlagRuleJsonContent> ruleJsonContent, List<VariationOptionPercentageRollout> valueOptionsVariationRuleValues) {
             this.ruleId = ruleId;
             this.ruleName = ruleName;
             this.isIncludedInExpt = isIncludedInExpt;
@@ -388,8 +438,7 @@ public abstract class DataModel {
         private final List<FeatureFlagTargetIndividualUser> individuals;
         private final VariationOption valueOption;
 
-        TargetIndividualForVariationOption(List<FeatureFlagTargetIndividualUser> individuals,
-                                           VariationOption valueOption) {
+        TargetIndividualForVariationOption(List<FeatureFlagTargetIndividualUser> individuals, VariationOption valueOption) {
             this.individuals = individuals;
             this.valueOption = valueOption;
         }
@@ -403,8 +452,7 @@ public abstract class DataModel {
         }
 
         public boolean isTargeted(String userKeyId) {
-            if (individuals == null)
-                return false;
+            if (individuals == null) return false;
             return individuals.stream().anyMatch(i -> i.keyId.equals(userKeyId));
         }
     }
@@ -414,9 +462,7 @@ public abstract class DataModel {
         private final Integer displayOrder;
         private final String variationValue;
 
-        VariationOption(Integer localId,
-                        Integer displayOrder,
-                        String variationValue) {
+        VariationOption(Integer localId, Integer displayOrder, String variationValue) {
             this.localId = localId;
             this.displayOrder = displayOrder;
             this.variationValue = variationValue;
@@ -441,9 +487,7 @@ public abstract class DataModel {
         private final List<Double> rolloutPercentage;
         private final VariationOption valueOption;
 
-        VariationOptionPercentageRollout(Double exptRollout,
-                                         List<Double> rolloutPercentage,
-                                         VariationOption valueOption) {
+        VariationOptionPercentageRollout(Double exptRollout, List<Double> rolloutPercentage, VariationOption valueOption) {
             this.exptRollout = exptRollout;
             this.rolloutPercentage = rolloutPercentage;
             this.valueOption = valueOption;
@@ -467,9 +511,7 @@ public abstract class DataModel {
         private final String operation;
         private final String value;
 
-        FeatureFlagRuleJsonContent(String property,
-                                   String operation,
-                                   String value) {
+        FeatureFlagRuleJsonContent(String property, String operation, String value) {
             this.property = property;
             this.operation = operation;
             this.value = value;
@@ -494,10 +536,7 @@ public abstract class DataModel {
         private final String keyId;
         private final String email;
 
-        FeatureFlagTargetIndividualUser(String id,
-                                        String name,
-                                        String keyId,
-                                        String email) {
+        FeatureFlagTargetIndividualUser(String id, String name, String keyId, String email) {
             this.id = id;
             this.name = name;
             this.keyId = keyId;

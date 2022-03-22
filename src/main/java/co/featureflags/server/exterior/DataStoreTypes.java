@@ -27,6 +27,10 @@ public abstract class DataStoreTypes {
             "/api/public/sdk/latest-feature-flags",
             "/streaming");
 
+    public final static Category SEGMENTS = new Category("segments",
+            "/api/public/sdk/latest-feature-flags",
+            "/streaming");
+
     /**
      * An enumeration of all supported {@link Category} types.
      * <p>

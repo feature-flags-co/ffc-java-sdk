@@ -14,8 +14,8 @@ import java.util.regex.Pattern;
 
 final class EvaluatorImp extends Evaluator {
 
-    EvaluatorImp(Getter<DataModel.FeatureFlag> flagGetter) {
-        super(flagGetter);
+    public EvaluatorImp(Getter<DataModel.FeatureFlag> flagGetter, Getter<DataModel.Segment> segmentGetter) {
+        super(flagGetter, segmentGetter);
     }
 
     @Override
@@ -52,11 +52,7 @@ final class EvaluatorImp extends Evaluator {
                 return er;
             }
             // TODO useless code
-            er = EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(),
-                    REASON_FALLTHROUGH,
-                    false,
-                    flag.getInfo().getKeyName(),
-                    flag.getInfo().getName());
+            er = EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_FALLTHROUGH, false, flag.getInfo().getKeyName(), flag.getInfo().getName());
             return er;
         } finally {
             if (er != null && event != null) {
@@ -68,64 +64,36 @@ final class EvaluatorImp extends Evaluator {
     private EvalResult matchFeatureFlagDisabledUserVariation(DataModel.FeatureFlag flag, FFCUser user, InsightTypes.Event event) {
         // case flag is off
         if (FLAG_DISABLE_STATS.equals(flag.getInfo().getStatus())) {
-            return EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(),
-                    REASON_FLAG_OFF,
-                    false,
-                    flag.getInfo().getKeyName(),
-                    flag.getInfo().getName());
+            return EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_FLAG_OFF, false, flag.getInfo().getKeyName(), flag.getInfo().getName());
         }
         // case prerequisite is set
-        return flag.getPrerequisites().stream()
-                .filter(prerequisite -> {
-                    String preFlagId = prerequisite.getPrerequisiteFeatureFlagId();
-                    if (!preFlagId.equals(flag.getInfo().getId())) {
-                        DataModel.FeatureFlag preFlag = this.flagGetter.get(preFlagId);
-                        if (preFlag == null) {
-                            String preFlagKey = FeatureFlagKeyExtension.unpackFeatureFlagId(preFlagId, 4);
-                            logger.warn("prerequisite flag {} not found", preFlagKey);
-                            return true;
-                        }
-                        EvalResult er = matchUserVariation(preFlag, user, event);
-                        // even if prerequisite flag is off, check if default value of prerequisite flag matches expected value
-                        // if prerequisite failed, return the default value of this flag
-                        return !er.getIndex().equals(prerequisite.getValueOptionsVariationValue().getLocalId());
+        return flag.getPrerequisites().stream().filter(prerequisite -> {
+            String preFlagId = prerequisite.getPrerequisiteFeatureFlagId();
+            if (!preFlagId.equals(flag.getInfo().getId())) {
+                DataModel.FeatureFlag preFlag = this.flagGetter.get(preFlagId);
+                if (preFlag == null) {
+                    String preFlagKey = FeatureFlagKeyExtension.unpackFeatureFlagId(preFlagId, 4);
+                    logger.warn("prerequisite flag {} not found", preFlagKey);
+                    return true;
+                }
+                EvalResult er = matchUserVariation(preFlag, user, event);
+                // even if prerequisite flag is off, check if default value of prerequisite flag matches expected value
+                // if prerequisite failed, return the default value of this flag
+                return !er.getIndex().equals(prerequisite.getValueOptionsVariationValue().getLocalId());
 
-                    }
-                    return false;
-                }).findFirst()
-                .map(prerequisite -> EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(),
-                        REASON_PREREQUISITE_FAILED,
-                        false,
-                        flag.getInfo().getKeyName(),
-                        flag.getInfo().getName()))
-                .orElse(null);
+            }
+            return false;
+        }).findFirst().map(prerequisite -> EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_PREREQUISITE_FAILED, false, flag.getInfo().getKeyName(), flag.getInfo().getName())).orElse(null);
     }
 
     private EvalResult matchTargetedUserVariation(DataModel.FeatureFlag featureFlag, FFCUser user) {
-        return featureFlag.getTargets().stream()
-                .filter(target -> target.isTargeted(user.getKey()))
-                .findFirst()
-                .map(target -> EvalResult.of(target.getValueOption(),
-                        REASON_TARGET_MATCH,
-                        featureFlag.isExptIncludeAllRules(),
-                        featureFlag.getInfo().getKeyName(),
-                        featureFlag.getInfo().getName()))
-                .orElse(null);
+        return featureFlag.getTargets().stream().filter(target -> target.isTargeted(user.getKey())).findFirst().map(target -> EvalResult.of(target.getValueOption(), REASON_TARGET_MATCH, featureFlag.isExptIncludeAllRules(), featureFlag.getInfo().getKeyName(), featureFlag.getInfo().getName())).orElse(null);
     }
 
     private EvalResult matchConditionedUserVariation(DataModel.FeatureFlag featureFlag, FFCUser user) {
-        DataModel.FeatureFlagTargetUsersWhoMatchTheseRuleParam targetRule = featureFlag.getRules().stream()
-                .filter(rule -> ifUserMatchRule(user, rule.getRuleJsonContent()))
-                .findFirst()
-                .orElse(null);
+        DataModel.FeatureFlagTargetUsersWhoMatchTheseRuleParam targetRule = featureFlag.getRules().stream().filter(rule -> ifUserMatchRule(user, rule.getRuleJsonContent())).findFirst().orElse(null);
         // optional flatmap can't infer inner type of collection
-        return targetRule == null ? null :
-                getRollOutVariationOption(targetRule.getValueOptionsVariationRuleValues(),
-                        user,
-                        REASON_RULE_MATCH,
-                        targetRule.isIncludedInExpt(),
-                        featureFlag.getInfo().getKeyName(),
-                        featureFlag.getInfo().getName());
+        return targetRule == null ? null : getRollOutVariationOption(targetRule.getValueOptionsVariationRuleValues(), user, REASON_RULE_MATCH, targetRule.isIncludedInExpt(), featureFlag.getInfo().getKeyName(), featureFlag.getInfo().getName());
 
 
     }
@@ -134,6 +102,8 @@ final class EvaluatorImp extends Evaluator {
         return clauses.stream().allMatch(clause -> {
             boolean isInCondition = false;
             String op = clause.getOperation();
+            // segment hasn't any operation
+            op = StringUtils.isBlank(op) ? clause.getProperty() : op;
             if (op.contains(THAN_CLAUSE)) {
                 isInCondition = thanClause(user, clause);
             } else if (op.equals(EQ_CLAUSE)) {
@@ -160,9 +130,24 @@ final class EvaluatorImp extends Evaluator {
                 isInCondition = matchRegExClause(user, clause);
             } else if (op.equals(NOT_MATCH_REGEX_CLAUSE)) {
                 isInCondition = !matchRegExClause(user, clause);
+            } else if (op.equals(IS_IN_SEGMENT_CLAUSE)) {
+                isInCondition = inSegmentClause(user, clause);
+            } else if (op.equals(NOT_IN_SEGMENT_CLAUSE)) {
+                isInCondition = !inSegmentClause(user, clause);
             }
             return isInCondition;
         });
+    }
+
+    private boolean inSegmentClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
+        String pv = user.getKey();
+        try {
+            List<String> clauseValues = JsonHelper.deserialize(clause.getValue(), new TypeToken<List<String>>() {
+            }.getType());
+            return clauseValues.stream().map(segmentGetter::get).anyMatch(segment -> segment != null && segment.isMatchUser(pv));
+        } catch (JsonParseException e) {
+            return false;
+        }
     }
 
     private boolean falseClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
@@ -174,9 +159,7 @@ final class EvaluatorImp extends Evaluator {
     private boolean matchRegExClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
         String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
-        return pv != null && Pattern.compile(Pattern.quote(clauseValue), Pattern.CASE_INSENSITIVE)
-                .matcher(pv)
-                .find();
+        return pv != null && Pattern.compile(Pattern.quote(clauseValue), Pattern.CASE_INSENSITIVE).matcher(pv).find();
     }
 
     private boolean trueClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
@@ -243,24 +226,11 @@ final class EvaluatorImp extends Evaluator {
     }
 
     private EvalResult matchDefaultUserVariation(DataModel.FeatureFlag featureFlag, FFCUser user) {
-        return getRollOutVariationOption(featureFlag.getInfo().getDefaultRulePercentageRollouts(),
-                user,
-                REASON_FALLTHROUGH,
-                featureFlag.getInfo().isDefaultRulePercentageRolloutsIncludedInExpt(),
-                featureFlag.getInfo().getKeyName(),
-                featureFlag.getInfo().getName());
+        return getRollOutVariationOption(featureFlag.getInfo().getDefaultRulePercentageRollouts(), user, REASON_FALLTHROUGH, featureFlag.getInfo().isDefaultRulePercentageRolloutsIncludedInExpt(), featureFlag.getInfo().getKeyName(), featureFlag.getInfo().getName());
     }
 
-    private EvalResult getRollOutVariationOption(Collection<DataModel.VariationOptionPercentageRollout> rollouts,
-                                                 FFCUser user,
-                                                 String reason,
-                                                 boolean sendToExperiment,
-                                                 String flagKeyName,
-                                                 String flagName) {
-        return rollouts.stream()
-                .filter(rollout -> VariationSplittingAlgorithm.ifKeyBelongsPercentage(user.getKey(), rollout.getRolloutPercentage()))
-                .findFirst().map(rollout -> EvalResult.of(rollout.getValueOption(), reason, sendToExperiment, flagKeyName, flagName))
-                .orElse(null);
+    private EvalResult getRollOutVariationOption(Collection<DataModel.VariationOptionPercentageRollout> rollouts, FFCUser user, String reason, boolean sendToExperiment, String flagKeyName, String flagName) {
+        return rollouts.stream().filter(rollout -> VariationSplittingAlgorithm.ifKeyBelongsPercentage(user.getKey(), rollout.getRolloutPercentage())).findFirst().map(rollout -> EvalResult.of(rollout.getValueOption(), reason, sendToExperiment, flagKeyName, flagName)).orElse(null);
     }
 
 
