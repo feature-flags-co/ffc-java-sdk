@@ -1,6 +1,7 @@
 package co.featureflags.server;
 
 import co.featureflags.commons.json.JsonHelper;
+import co.featureflags.commons.model.UserTag;
 import co.featureflags.server.exterior.DataStoreTypes;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.annotations.JsonAdapter;
@@ -25,6 +26,7 @@ public abstract class DataModel {
         Integer FFC_ARCHIVED_VDATA = 200;
         Integer FFC_PERSISTENT_VDATA = 300;
         Integer FFC_SEGMENT = 400;
+        Integer FFC_USER_TAG = 500;
 
         /**
          * return the unique id
@@ -137,19 +139,25 @@ public abstract class DataModel {
         private final String eventType;
         private final List<FeatureFlag> featureFlags;
         private final List<Segment> segments;
+        private final List<TimestampUserTag> userTags;
         private Long timestamp;
 
-        Data(String eventType, List<FeatureFlag> featureFlags, List<Segment> segments) {
+        Data(String eventType, List<FeatureFlag> featureFlags,
+             List<Segment> segments,
+             List<TimestampUserTag> userTags) {
             this.eventType = eventType;
             this.featureFlags = featureFlags;
             this.segments = segments;
+            this.userTags = userTags;
         }
 
         @Override
         public void afterDeserialization() {
             Long v1 = (featureFlags != null) ? featureFlags.stream().map(flag -> flag.timestamp).max(Long::compare).orElse(0L) : 0L;
             Long v2 = (segments != null) ? segments.stream().map(segment -> segment.timestamp).max(Long::compare).orElse(0L) : 0L;
+            Long v3 = (userTags != null) ? userTags.stream().map(tag -> tag.timestamp).max(Long::compare).orElse(0L) : 0L;
             timestamp = Math.max(v1, v2);
+            timestamp = Math.max(timestamp, v3);
         }
 
         public List<FeatureFlag> getFeatureFlags() {
@@ -158,6 +166,10 @@ public abstract class DataModel {
 
         public List<Segment> getSegments() {
             return segments == null ? Collections.emptyList() : segments;
+        }
+
+        public List<TimestampUserTag> getUserTags() {
+            return userTags == null ? Collections.emptyList() : userTags;
         }
 
         public String getEventType() {
@@ -179,7 +191,59 @@ public abstract class DataModel {
                 TimestampData data = segment.isArchived ? segment.toArchivedTimestampData() : segment;
                 segments.put(data.getId(), new DataStoreTypes.Item(data));
             }
-            return ImmutableMap.of(DataStoreTypes.FEATURES, flags.build(), DataStoreTypes.SEGMENTS, segments.build());
+            ImmutableMap.Builder<String, DataStoreTypes.Item> userTags = ImmutableMap.builder();
+            for (TimestampUserTag userTag : getUserTags()) {
+                TimestampData data = userTag.isArchived ? userTag.toArchivedTimestampData() : userTag;
+                userTags.put(data.getId(), new DataStoreTypes.Item(data));
+            }
+            return ImmutableMap.of(DataStoreTypes.FEATURES, flags.build(),
+                    DataStoreTypes.SEGMENTS, segments.build(),
+                    DataStoreTypes.USERTAGS, userTags.build());
+        }
+    }
+
+    static class TimestampUserTag extends UserTag implements TimestampData {
+
+        private final String id;
+
+        private final Boolean isArchived;
+
+        private final Long timestamp;
+
+        TimestampUserTag(String id,
+                         Boolean isArchived,
+                         Long timestamp,
+                         String requestProperty,
+                         String source,
+                         String userProperty) {
+            super(requestProperty, source, userProperty);
+            this.id = id;
+            this.isArchived = isArchived;
+            this.timestamp = timestamp;
+        }
+
+        @Override
+        public String getId() {
+            return id;
+        }
+
+        @Override
+        public boolean isArchived() {
+            return isArchived != null && isArchived;
+        }
+
+        @Override
+        public Long getTimestamp() {
+            return timestamp;
+        }
+
+        @Override
+        public Integer getType() {
+            return FFC_USER_TAG;
+        }
+
+        public TimestampData toArchivedTimestampData() {
+            return new ArchivedTimestampData(this.id, this.timestamp);
         }
     }
 

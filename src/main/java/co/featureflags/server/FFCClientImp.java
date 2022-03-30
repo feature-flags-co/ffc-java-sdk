@@ -5,11 +5,13 @@ import co.featureflags.commons.model.AllFlagStates;
 import co.featureflags.commons.model.EvalDetail;
 import co.featureflags.commons.model.FFCUser;
 import co.featureflags.commons.model.FlagState;
+import co.featureflags.commons.model.UserTag;
 import co.featureflags.server.exterior.DataStorage;
 import co.featureflags.server.exterior.DataStoreTypes;
 import co.featureflags.server.exterior.FFCClient;
 import co.featureflags.server.exterior.InsightProcessor;
 import co.featureflags.server.exterior.UpdateProcessor;
+import co.featureflags.server.integrations.FFCUserContextHolder;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.BooleanUtils;
@@ -18,6 +20,7 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +37,7 @@ import static co.featureflags.server.Evaluator.REASON_USER_NOT_SPECIFIED;
 import static co.featureflags.server.Evaluator.REASON_WRONG_TYPE;
 import static co.featureflags.server.exterior.DataStoreTypes.FEATURES;
 import static co.featureflags.server.exterior.DataStoreTypes.SEGMENTS;
+import static co.featureflags.server.exterior.DataStoreTypes.USERTAGS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -176,36 +180,82 @@ public final class FFCClientImp implements FFCClient {
         }
     }
 
+    @Override
     public boolean isInitialized() {
         return updateProcessor.isInitialized();
     }
 
+    @Override
     public String variation(String featureFlagKey, FFCUser user, String defaultValue) {
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, false);
         return res.getValue();
     }
 
+    @Override
+    public String variation(String featureFlagKey, String defaultValue) {
+        return variation(featureFlagKey, FFCUserContextHolder.getCurrentUser(), defaultValue);
+    }
+
+    @Override
     public FlagState<String> variationDetail(String featureFlagKey, FFCUser user, String defaultValue) {
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, false);
         return EvalDetail.of(res.getValue(), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey).toFlagState();
     }
 
+    @Override
+    public FlagState<String> variationDetail(String featureFlagKey, String defaultValue) {
+        return variationDetail(featureFlagKey, FFCUserContextHolder.getCurrentUser(), defaultValue);
+    }
+
+    @Override
     public boolean boolVariation(String featureFlagKey, FFCUser user, Boolean defaultValue) {
         checkNotNull(defaultValue, "null defaultValue is invalid");
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, true);
         return BooleanUtils.toBoolean(res.getValue());
     }
 
+    @Override
+    public boolean boolVariation(String featureFlagKey, Boolean defaultValue) {
+        return boolVariation(featureFlagKey, FFCUserContextHolder.getCurrentUser(), defaultValue);
+    }
+
+    @Override
+    public boolean isEnabled(String featureFlagKey, FFCUser user) {
+        return boolVariation(featureFlagKey, user, false);
+    }
+
+    @Override
+    public boolean isEnabled(String featureFlagKey) {
+        return boolVariation(featureFlagKey, FFCUserContextHolder.getCurrentUser(), false);
+    }
+
+    @Override
     public FlagState<Boolean> boolVariationDetail(String featureFlagKey, FFCUser user, Boolean defaultValue) {
         checkNotNull(defaultValue, "null defaultValue is invalid");
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, true);
         return EvalDetail.of(BooleanUtils.toBoolean(res.getValue()), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey).toFlagState();
     }
 
+    @Override
+    public FlagState<Boolean> boolVariationDetail(String featureFlagKey, Boolean defaultValue) {
+        return boolVariationDetail(featureFlagKey, FFCUserContextHolder.getCurrentUser(), defaultValue);
+    }
+
     public double doubleVariation(String featureFlagKey, FFCUser user, Double defaultValue) {
         checkNotNull(defaultValue, "null defaultValue is invalid");
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, true);
         return Double.parseDouble(res.getValue());
+    }
+
+    @Override
+    public double doubleVariation(String featureFlagKey, Double defaultValue) {
+        return doubleVariation(featureFlagKey, FFCUserContextHolder.getCurrentUser(), defaultValue);
+    }
+
+
+    @Override
+    public FlagState<Double> doubleVariationDetail(String featureFlagKey, Double defaultValue) {
+        return doubleVariationDetail(featureFlagKey, FFCUserContextHolder.getCurrentUser(), defaultValue);
     }
 
     @Override
@@ -222,10 +272,20 @@ public final class FFCClientImp implements FFCClient {
     }
 
     @Override
+    public int intVariation(String featureFlagKey, Integer defaultValue) {
+        return intVariation(featureFlagKey, defaultValue);
+    }
+
+    @Override
     public FlagState<Integer> intVariationDetail(String featureFlagKey, FFCUser user, Integer defaultValue) {
         checkNotNull(defaultValue, "null defaultValue is invalid");
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, true);
         return EvalDetail.of(Double.valueOf(res.getValue()).intValue(), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey).toFlagState();
+    }
+
+    @Override
+    public FlagState<Integer> intVariationDetail(String featureFlagKey, Integer defaultValue) {
+        return intVariationDetail(featureFlagKey, FFCUserContextHolder.getCurrentUser(), defaultValue);
     }
 
     public long longVariation(String featureFlagKey, FFCUser user, Long defaultValue) {
@@ -235,10 +295,20 @@ public final class FFCClientImp implements FFCClient {
     }
 
     @Override
+    public long longVariation(String featureFlagKey, Long defaultValue) {
+        return longVariation(featureFlagKey, FFCUserContextHolder.getCurrentUser(), defaultValue);
+    }
+
+    @Override
     public FlagState<Long> longVariationDetail(String featureFlagKey, FFCUser user, Long defaultValue) {
         checkNotNull(defaultValue, "null defaultValue is invalid");
         Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, defaultValue, true);
         return EvalDetail.of(Double.valueOf(res.getValue()).longValue(), res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey).toFlagState();
+    }
+
+    @Override
+    public FlagState<Long> longVariationDetail(String featureFlagKey, Long defaultValue) {
+        return longVariationDetail(featureFlagKey, FFCUserContextHolder.getCurrentUser(), defaultValue);
     }
 
     Evaluator.EvalResult evaluateInternal(String featureFlagKey, FFCUser user, Object defaultValue, boolean checkType) {
@@ -386,6 +456,18 @@ public final class FFCClientImp implements FFCClient {
     }
 
     @Override
+    public List<UserTag> getAllUserTags() {
+        ImmutableList.Builder<UserTag> tags = new ImmutableList.Builder<>();
+        if (isInitialized()) {
+            Map<String, DataStoreTypes.Item> items = this.storage.getAll(USERTAGS);
+            for (DataStoreTypes.Item item : items.values()) {
+                tags.add((UserTag) item.item());
+            }
+        }
+        return tags.build();
+    }
+
+    @Override
     public void flush() {
         this.insightProcessor.flush();
     }
@@ -393,6 +475,11 @@ public final class FFCClientImp implements FFCClient {
     @Override
     public void trackMetric(FFCUser user, String eventName) {
         trackMetric(user, eventName, 1.0);
+    }
+
+    @Override
+    public void trackMetric(String eventName) {
+        trackMetric(FFCUserContextHolder.getCurrentUser(), eventName, 1.0);
     }
 
     @Override
@@ -404,6 +491,11 @@ public final class FFCClientImp implements FFCClient {
         InsightTypes.Event event = InsightTypes.MetricEvent.of(user)
                 .add(InsightTypes.Metric.of(eventName, metricValue));
         insightProcessor.send(event);
+    }
+
+    @Override
+    public void trackMetric(String eventName, double metricValue) {
+        trackMetric(FFCUserContextHolder.getCurrentUser(), eventName, metricValue);
     }
 
     @Override
@@ -422,6 +514,11 @@ public final class FFCClientImp implements FFCClient {
     }
 
     @Override
+    public void trackMetrics(String... eventNames) {
+        trackMetrics(FFCUserContextHolder.getCurrentUser(), eventNames);
+    }
+
+    @Override
     public void trackMetrics(FFCUser user, Map<String, Double> metrics) {
         if (user == null || metrics == null || metrics.isEmpty()) {
             Loggers.CLIENT.warn("user/metrics invalid");
@@ -436,5 +533,10 @@ public final class FFCClientImp implements FFCClient {
             }
         }
         insightProcessor.send(event);
+    }
+
+    @Override
+    public void trackMetrics(Map<String, Double> metrics) {
+        trackMetrics(FFCUserContextHolder.getCurrentUser(), metrics);
     }
 }

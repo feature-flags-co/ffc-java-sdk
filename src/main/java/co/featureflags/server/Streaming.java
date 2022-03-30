@@ -219,6 +219,7 @@ final class Streaming implements UpdateProcessor {
         @Override
         public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
             logger.info("Streaming WebSocket is processing data");
+            logger.debug(text);
             DataModel.All all = JsonHelper.deserialize(text, DataModel.All.class);
             if (all.isProcessData()) {
                 try {
