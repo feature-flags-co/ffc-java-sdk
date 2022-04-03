@@ -30,12 +30,14 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static co.featureflags.server.DataModel.StreamingMessage.DATA_SYNC;
 import static co.featureflags.server.Status.DATA_INVALID_ERROR;
 import static co.featureflags.server.Status.NETWORK_ERROR;
 import static co.featureflags.server.Status.REQUEST_INVALID_ERROR;
@@ -56,7 +58,7 @@ final class Streaming implements UpdateProcessor {
     private static final Integer GOING_AWAY_CLOSE = 1001;
     private static final String JUST_RECONN_REASON_REGISTERED = "reconn";
     private static final int MAX_QUEUE_SIZE = 20;
-    private static final Duration PING_INTERVAL = Duration.ofSeconds(20);
+    private static final Duration PING_INTERVAL = Duration.ofSeconds(10);
     private static final Duration AWAIT_TERMINATION = Duration.ofSeconds(2);
     private static final String DEFAULT_STREAMING_PATH = "/streaming";
     private static final String AUTH_PARAMS = "?token=%s&type=server&version=2";
@@ -71,6 +73,7 @@ final class Streaming implements UpdateProcessor {
     private final CompletableFuture<Boolean> initFuture = new CompletableFuture<>();
     private final StreamingWebSocketListener listener = new DefaultWebSocketListener();
     private final ThreadPoolExecutor storageUpdateExecutor;
+    private final ScheduledThreadPoolExecutor pingScheduledExecutor;
     private final Status.DataUpdator updator;
     private final BasicConfig basicConfig;
     private final HttpConfig httpConfig;
@@ -100,8 +103,10 @@ final class Streaming implements UpdateProcessor {
                 0L,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(MAX_QUEUE_SIZE),
-                Utils.createThreadFactory("data-sync-worker-%d", true),
+                Utils.createThreadFactory("streaming-data-sync-worker-%d", true),
                 new ThreadPoolExecutor.CallerRunsPolicy());
+        this.pingScheduledExecutor = new ScheduledThreadPoolExecutor(1,
+                Utils.createThreadFactory("streaming-periodic-ping-worker-%d", true));
     }
 
     @Override
@@ -111,6 +116,7 @@ final class Streaming implements UpdateProcessor {
         connCount.set(0);
         isWSConnected.set(false);
         connect();
+        pingScheduledExecutor.scheduleAtFixedRate(this::ping, 0L, PING_INTERVAL.toMillis(), TimeUnit.MILLISECONDS);
         return initFuture;
     }
 
@@ -127,9 +133,18 @@ final class Streaming implements UpdateProcessor {
         }
     }
 
+    private void ping() {
+        if (webSocket != null) {
+            // logger.debug("ping");
+            String json = JsonHelper.serialize(new DataModel.DataSyncMessage(null));
+            webSocket.send(json);
+        }
+    }
+
     private void clearExecutor() {
         Loggers.UPDATE_PROCESSOR.debug("streaming processor clean up thread and conn pool");
-        Utils.shutDownThreadPool("Streaming", storageUpdateExecutor, AWAIT_TERMINATION);
+        Utils.shutDownThreadPool("streaming-data-sync-worker", storageUpdateExecutor, AWAIT_TERMINATION);
+        Utils.shutDownThreadPool("streaming-periodic-ping-worker", pingScheduledExecutor, AWAIT_TERMINATION);
         Utils.shutdownOKHttpClient("Streaming", okHttpClient);
     }
 
@@ -172,7 +187,7 @@ final class Streaming implements UpdateProcessor {
     @NotNull
     private OkHttpClient buildWebOkHttpClient() {
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
-        builder.connectTimeout(httpConfig.connectTime()).pingInterval(PING_INTERVAL).retryOnConnectionFailure(false);
+        builder.connectTimeout(httpConfig.connectTime()).pingInterval(Duration.ZERO).retryOnConnectionFailure(false);
         Utils.buildProxyAndSocketFactoryFor(builder, httpConfig);
         return builder.build();
     }
@@ -218,16 +233,19 @@ final class Streaming implements UpdateProcessor {
         // if received data is invalid
         @Override
         public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
-            logger.info("Streaming WebSocket is processing data");
-            logger.debug(text);
-            DataModel.All all = JsonHelper.deserialize(text, DataModel.All.class);
-            if (all.isProcessData()) {
-                try {
-                    permits.acquire();
-                    CompletableFuture
-                            .supplyAsync(() -> processDateAsync(all.data()), storageUpdateExecutor)
-                            .whenComplete((res, exception) -> permits.release());
-                } catch (InterruptedException ignore) {
+            // logger.debug(text);
+            DataModel.StreamingMessage message = JsonHelper.deserialize(text, DataModel.StreamingMessage.class);
+            if (DATA_SYNC.equalsIgnoreCase(message.getMessageType())) {
+                logger.info("Streaming WebSocket is processing data");
+                DataModel.All all = JsonHelper.deserialize(text, DataModel.All.class);
+                if (all.isProcessData()) {
+                    try {
+                        permits.acquire();
+                        CompletableFuture
+                                .supplyAsync(() -> processDateAsync(all.data()), storageUpdateExecutor)
+                                .whenComplete((res, exception) -> permits.release());
+                    } catch (InterruptedException ignore) {
+                    }
                 }
             }
         }
@@ -305,10 +323,9 @@ final class Streaming implements UpdateProcessor {
                         }
                     }
                 }
-                if(!isReconn && t instanceof IOException){
+                if (!isReconn && t instanceof IOException) {
                     errorType = WEBSOCKET_ERROR;
-                }
-                else if (errorType == null) {
+                } else if (errorType == null) {
                     errorType = UNKNOWN_ERROR;
                 }
             }

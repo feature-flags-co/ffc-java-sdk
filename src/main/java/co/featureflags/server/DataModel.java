@@ -91,29 +91,44 @@ public abstract class DataModel {
         }
     }
 
-    static class DataSyncMessage {
-        final String messageType = "data-sync";
+    static class StreamingMessage {
+        static final String DATA_SYNC = "data-sync";
+        static final String PING = "ping";
+        static final String PONG = "pong";
+
+        protected final String messageType;
+
+        StreamingMessage(String messageType) {
+            this.messageType = messageType;
+        }
+
+        public String getMessageType() {
+            return messageType;
+        }
+    }
+
+    static class DataSyncMessage extends StreamingMessage {
         final InternalData data;
 
         DataSyncMessage(Long timestamp) {
-            this.data = new InternalData(timestamp);
+            super(timestamp == null ? PING : DATA_SYNC);
+            this.data = timestamp == null ? null : new InternalData(timestamp);
         }
 
-        private static class InternalData {
+        static class InternalData {
             Long timestamp;
 
-            private InternalData(Long timestamp) {
+            InternalData(Long timestamp) {
                 this.timestamp = timestamp;
             }
         }
     }
 
-    static class All {
-        private final String messageType;
+    static class All extends StreamingMessage {
         private final Data data;
 
         All(String messageType, Data data) {
-            this.messageType = messageType;
+            super(messageType);
             this.data = data;
         }
 
@@ -121,12 +136,8 @@ public abstract class DataModel {
             return data;
         }
 
-        public String getMessageType() {
-            return messageType;
-        }
-
         boolean isProcessData() {
-            return "data-sync".equalsIgnoreCase(messageType) && data != null && ("full".equalsIgnoreCase(data.eventType) || "patch".equalsIgnoreCase(data.eventType));
+            return DATA_SYNC.equalsIgnoreCase(messageType) && data != null && ("full".equalsIgnoreCase(data.eventType) || "patch".equalsIgnoreCase(data.eventType));
         }
     }
 
@@ -142,9 +153,7 @@ public abstract class DataModel {
         private final List<TimestampUserTag> userTags;
         private Long timestamp;
 
-        Data(String eventType, List<FeatureFlag> featureFlags,
-             List<Segment> segments,
-             List<TimestampUserTag> userTags) {
+        Data(String eventType, List<FeatureFlag> featureFlags, List<Segment> segments, List<TimestampUserTag> userTags) {
             this.eventType = eventType;
             this.featureFlags = featureFlags;
             this.segments = segments;
@@ -196,9 +205,7 @@ public abstract class DataModel {
                 TimestampData data = userTag.isArchived ? userTag.toArchivedTimestampData() : userTag;
                 userTags.put(data.getId(), new DataStoreTypes.Item(data));
             }
-            return ImmutableMap.of(DataStoreTypes.FEATURES, flags.build(),
-                    DataStoreTypes.SEGMENTS, segments.build(),
-                    DataStoreTypes.USERTAGS, userTags.build());
+            return ImmutableMap.of(DataStoreTypes.FEATURES, flags.build(), DataStoreTypes.SEGMENTS, segments.build(), DataStoreTypes.USERTAGS, userTags.build());
         }
     }
 
@@ -210,12 +217,7 @@ public abstract class DataModel {
 
         private final Long timestamp;
 
-        TimestampUserTag(String id,
-                         Boolean isArchived,
-                         Long timestamp,
-                         String requestProperty,
-                         String source,
-                         String userProperty) {
+        TimestampUserTag(String id, Boolean isArchived, Long timestamp, String requestProperty, String source, String userProperty) {
             super(requestProperty, source, userProperty);
             this.id = id;
             this.isArchived = isArchived;
