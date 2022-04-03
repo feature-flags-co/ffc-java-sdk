@@ -30,10 +30,10 @@ abstract class Demos {
             String envSecret = "YjA1LTNiZDUtNCUyMDIxMDkwNDIyMTMxNV9fMzhfXzQ4X18xMDNfX2RlZmF1bHRfNzc1Yjg=";
 
             StreamingBuilder streamingBuilder = Factory.streamingBuilder()
-                    .newStreamingURI("wss://ffc-api-ce2-dev.chinacloudsites.cn");
+                    .newStreamingURI("wss://api-dev.minjiekaiguan.com");
 
             InsightProcessorBuilder insightProcessorBuilder = Factory.insightProcessorFactory()
-                    .eventUri("https://ffc-api-ce2-dev.chinacloudsites.cn");
+                    .eventUri("https://api-dev.minjiekaiguan.com");
 
 
             FFCConfig config = new FFCConfig.Builder()
@@ -83,10 +83,10 @@ abstract class Demos {
             String envSecret = "YjA1LTNiZDUtNCUyMDIxMDkwNDIyMTMxNV9fMzhfXzQ4X18xMDNfX2RlZmF1bHRfNzc1Yjg=";
 
             StreamingBuilder streamingBuilder = Factory.streamingBuilder()
-                    .newStreamingURI("wss://ffc-api-ce2-dev.chinacloudsites.cn");
+                    .newStreamingURI("wss://api-dev.minjiekaiguan.com");
 
             InsightProcessorBuilder insightProcessorBuilder = Factory.insightProcessorFactory()
-                    .eventUri("https://ffc-api-ce2-dev.chinacloudsites.cn");
+                    .eventUri("https://api-dev.minjiekaiguan.com");
 
 
             FFCConfig config = new FFCConfig.Builder()

@@ -59,7 +59,7 @@ final class Streaming implements UpdateProcessor {
     private static final Duration PING_INTERVAL = Duration.ofSeconds(20);
     private static final Duration AWAIT_TERMINATION = Duration.ofSeconds(2);
     private static final String DEFAULT_STREAMING_PATH = "/streaming";
-    private static final String AUTH_PARAMS = "?token=%s&type=server";
+    private static final String AUTH_PARAMS = "?token=%s&type=server&version=2";
     private static final Map<Integer, String> NOT_RECONN_CLOSE_REASON = ImmutableMap.of(NORMAL_CLOSE, NORMAL_CLOSE_REASON, INVALID_REQUEST_CLOSE, INVALID_REQUEST_CLOSE_REASON);
     private static final List<Class<? extends Exception>> RECONNECT_EXCEPTIONS = ImmutableList.of(SocketTimeoutException.class, SocketException.class, EOFException.class);
     private static final Logger logger = Loggers.UPDATE_PROCESSOR;
