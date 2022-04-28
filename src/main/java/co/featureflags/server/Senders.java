@@ -106,7 +106,7 @@ abstract class Senders {
                         return;
                     }
                 } catch (Exception ex) {
-                    Loggers.EVENTS.error("events sending error: {}", ex.getMessage());
+                    Loggers.EVENTS.error("FFC JAVA SDK: events sending error: {}", ex.getMessage());
                 }
             }
         }

@@ -261,12 +261,20 @@ public abstract class DataModel {
 
         private final List<String> excluded;
 
-        Segment(String id, Boolean isArchived, Long timestamp, List<String> included, List<String> excluded) {
+        private final List<TargetRule> rules;
+
+        Segment(String id,
+                Boolean isArchived,
+                Long timestamp,
+                List<String> included,
+                List<String> excluded,
+                List<TargetRule> rules) {
             this.id = id;
             this.isArchived = isArchived;
             this.timestamp = timestamp;
             this.included = included;
             this.excluded = excluded;
+            this.rules = rules;
         }
 
         @Override
@@ -297,11 +305,20 @@ public abstract class DataModel {
             return excluded == null ? Collections.emptyList() : excluded;
         }
 
-        public boolean isMatchUser(String userKeyId) {
+        public List<TargetRule> getRules() {
+            return rules == null ? Collections.emptyList() : rules;
+        }
+
+        public Boolean isMatchUser(String userKeyId) {
             if (getExcluded().contains(userKeyId)) {
-                return false;
+                return Boolean.FALSE;
             }
-            return getIncluded().contains(userKeyId);
+
+            if (getIncluded().contains(userKeyId)) {
+                return Boolean.TRUE;
+            }
+            // if no included or excluded, then it's to match rules
+            return null;
         }
 
         public TimestampData toArchivedTimestampData() {
@@ -319,13 +336,13 @@ public abstract class DataModel {
         @SerializedName("ffp")
         private final List<FeatureFlagPrerequisite> prerequisites;
         @SerializedName("fftuwmtr")
-        private final List<FeatureFlagTargetUsersWhoMatchTheseRuleParam> rules;
+        private final List<TargetRule> rules;
         @SerializedName("targetIndividuals")
-        private final List<TargetIndividualForVariationOption> targets;
+        private final List<TargetIndividuals> targets;
         @SerializedName("variationOptions")
         private final List<VariationOption> variations;
 
-        FeatureFlag(String id, Boolean isArchived, Long timestamp, Boolean exptIncludeAllRules, FeatureFlagBasicInfo info, List<FeatureFlagPrerequisite> prerequisites, List<FeatureFlagTargetUsersWhoMatchTheseRuleParam> rules, List<TargetIndividualForVariationOption> targets, List<VariationOption> variations) {
+        FeatureFlag(String id, Boolean isArchived, Long timestamp, Boolean exptIncludeAllRules, FeatureFlagBasicInfo info, List<FeatureFlagPrerequisite> prerequisites, List<TargetRule> rules, List<TargetIndividuals> targets, List<VariationOption> variations) {
             this.id = id;
             this.isArchived = isArchived;
             this.timestamp = timestamp;
@@ -373,11 +390,11 @@ public abstract class DataModel {
             return prerequisites == null ? Collections.emptyList() : prerequisites;
         }
 
-        public List<FeatureFlagTargetUsersWhoMatchTheseRuleParam> getRules() {
+        public List<TargetRule> getRules() {
             return rules == null ? Collections.emptyList() : rules;
         }
 
-        public List<TargetIndividualForVariationOption> getTargets() {
+        public List<TargetIndividuals> getTargets() {
             return targets == null ? Collections.emptyList() : targets;
         }
 
@@ -464,14 +481,14 @@ public abstract class DataModel {
         }
     }
 
-    static class FeatureFlagTargetUsersWhoMatchTheseRuleParam {
+    static class TargetRule {
         private final String ruleId;
         private final String ruleName;
         private final Boolean isIncludedInExpt;
-        private final List<FeatureFlagRuleJsonContent> ruleJsonContent;
+        private final List<RuleItem> ruleJsonContent;
         private final List<VariationOptionPercentageRollout> valueOptionsVariationRuleValues;
 
-        FeatureFlagTargetUsersWhoMatchTheseRuleParam(String ruleId, String ruleName, Boolean isIncludedInExpt, List<FeatureFlagRuleJsonContent> ruleJsonContent, List<VariationOptionPercentageRollout> valueOptionsVariationRuleValues) {
+        TargetRule(String ruleId, String ruleName, Boolean isIncludedInExpt, List<RuleItem> ruleJsonContent, List<VariationOptionPercentageRollout> valueOptionsVariationRuleValues) {
             this.ruleId = ruleId;
             this.ruleName = ruleName;
             this.isIncludedInExpt = isIncludedInExpt;
@@ -491,7 +508,7 @@ public abstract class DataModel {
             return isIncludedInExpt == null ? Boolean.FALSE : isIncludedInExpt;
         }
 
-        public List<FeatureFlagRuleJsonContent> getRuleJsonContent() {
+        public List<RuleItem> getRuleJsonContent() {
             return ruleJsonContent == null ? Collections.emptyList() : ruleJsonContent;
         }
 
@@ -500,11 +517,11 @@ public abstract class DataModel {
         }
     }
 
-    static class TargetIndividualForVariationOption {
+    static class TargetIndividuals {
         private final List<FeatureFlagTargetIndividualUser> individuals;
         private final VariationOption valueOption;
 
-        TargetIndividualForVariationOption(List<FeatureFlagTargetIndividualUser> individuals, VariationOption valueOption) {
+        TargetIndividuals(List<FeatureFlagTargetIndividualUser> individuals, VariationOption valueOption) {
             this.individuals = individuals;
             this.valueOption = valueOption;
         }
@@ -572,12 +589,12 @@ public abstract class DataModel {
         }
     }
 
-    static class FeatureFlagRuleJsonContent {
+    static class RuleItem {
         private final String property;
         private final String operation;
         private final String value;
 
-        FeatureFlagRuleJsonContent(String property, String operation, String value) {
+        RuleItem(String property, String operation, String value) {
             this.property = property;
             this.operation = operation;
             this.value = value;

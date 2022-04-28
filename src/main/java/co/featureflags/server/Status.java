@@ -263,7 +263,7 @@ public abstract class Status {
         }
 
         private void handleErrorFromStorage(Exception ex, ErrorInfo errorInfo) {
-            Loggers.DATA_STORAGE.warn("Data Storage error: {}, UpdateProcessor will attempt to receive the data", ex.getMessage());
+            Loggers.DATA_STORAGE.error("FFC JAVA SDK: Data Storage error: {}, UpdateProcessor will attempt to receive the data", ex.getMessage());
             updateStatus(StateType.INTERRUPTED, errorInfo);
         }
 
