@@ -21,7 +21,7 @@ final class EvaluatorImp extends Evaluator {
     @Override
     EvalResult evaluate(DataModel.FeatureFlag flag, FFCUser user, InsightTypes.Event event) {
         if (user == null || flag == null) {
-            throw new IllegalArgumentException("null flag, user or event");
+            throw new IllegalArgumentException("null flag or empty user");
         }
         return matchUserVariation(flag, user, event);
 
@@ -55,6 +55,7 @@ final class EvaluatorImp extends Evaluator {
             er = EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_FALLTHROUGH, false, flag.getInfo().getKeyName(), flag.getInfo().getName());
             return er;
         } finally {
+            logger.info("FFC JAVA SDK: User {}, Feature Flag {}, Flag Value {}", user.getKey(), flag.getInfo().getKeyName(), er.getValue());
             if (er != null && event != null) {
                 event.add(InsightTypes.FlagEventVariation.of(flag.getInfo().getKeyName(), er));
             }
@@ -91,96 +92,109 @@ final class EvaluatorImp extends Evaluator {
     }
 
     private EvalResult matchConditionedUserVariation(DataModel.FeatureFlag featureFlag, FFCUser user) {
-        DataModel.FeatureFlagTargetUsersWhoMatchTheseRuleParam targetRule = featureFlag.getRules().stream().filter(rule -> ifUserMatchRule(user, rule.getRuleJsonContent())).findFirst().orElse(null);
+        DataModel.TargetRule targetRule = featureFlag.getRules().stream().filter(rule -> ifUserMatchRule(user, rule.getRuleJsonContent())).findFirst().orElse(null);
         // optional flatmap can't infer inner type of collection
         return targetRule == null ? null : getRollOutVariationOption(targetRule.getValueOptionsVariationRuleValues(), user, REASON_RULE_MATCH, targetRule.isIncludedInExpt(), featureFlag.getInfo().getKeyName(), featureFlag.getInfo().getName());
 
 
     }
 
-    private boolean ifUserMatchRule(FFCUser user, List<DataModel.FeatureFlagRuleJsonContent> clauses) {
-        return clauses.stream().allMatch(clause -> {
-            boolean isInCondition = false;
-            String op = clause.getOperation();
-            // segment hasn't any operation
-            op = StringUtils.isBlank(op) ? clause.getProperty() : op;
-            if (op.contains(THAN_CLAUSE)) {
-                isInCondition = thanClause(user, clause);
-            } else if (op.equals(EQ_CLAUSE)) {
-                isInCondition = equalsClause(user, clause);
-            } else if (op.equals(NEQ_CLAUSE)) {
-                isInCondition = !equalsClause(user, clause);
-            } else if (op.equals(CONTAINS_CLAUSE)) {
-                isInCondition = containsClause(user, clause);
-            } else if (op.equals(NOT_CONTAIN_CLAUSE)) {
-                isInCondition = !containsClause(user, clause);
-            } else if (op.equals(IS_ONE_OF_CLAUSE)) {
-                isInCondition = oneOfClause(user, clause);
-            } else if (op.equals(NOT_ONE_OF_CLAUSE)) {
-                isInCondition = !oneOfClause(user, clause);
-            } else if (op.equals(STARTS_WITH_CLAUSE)) {
-                isInCondition = startsWithClause(user, clause);
-            } else if (op.equals(ENDS_WITH_CLAUSE)) {
-                isInCondition = endsWithClause(user, clause);
-            } else if (op.equals(IS_TRUE_CLAUSE)) {
-                isInCondition = trueClause(user, clause);
-            } else if (op.equals(IS_FALSE_CLAUSE)) {
-                isInCondition = falseClause(user, clause);
-            } else if (op.equals(MATCH_REGEX_CLAUSE)) {
-                isInCondition = matchRegExClause(user, clause);
-            } else if (op.equals(NOT_MATCH_REGEX_CLAUSE)) {
-                isInCondition = !matchRegExClause(user, clause);
-            } else if (op.equals(IS_IN_SEGMENT_CLAUSE)) {
-                isInCondition = inSegmentClause(user, clause);
-            } else if (op.equals(NOT_IN_SEGMENT_CLAUSE)) {
-                isInCondition = !inSegmentClause(user, clause);
-            }
-            return isInCondition;
-        });
+    private boolean ifUserMatchRule(FFCUser user, List<DataModel.RuleItem> clauses) {
+        return clauses.stream().allMatch(clause -> ifUserMatchClause(user, clause));
     }
 
-    private boolean inSegmentClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
+    private boolean ifUserMatchClause(FFCUser user, DataModel.RuleItem clause) {
+        String op = clause.getOperation();
+        // segment hasn't any operation
+        op = StringUtils.isBlank(op) ? clause.getProperty() : op;
+        if (op.contains(THAN_CLAUSE)) {
+            return thanClause(user, clause);
+        } else if (op.equals(EQ_CLAUSE)) {
+            return equalsClause(user, clause);
+        } else if (op.equals(NEQ_CLAUSE)) {
+            return !equalsClause(user, clause);
+        } else if (op.equals(CONTAINS_CLAUSE)) {
+            return containsClause(user, clause);
+        } else if (op.equals(NOT_CONTAIN_CLAUSE)) {
+            return !containsClause(user, clause);
+        } else if (op.equals(IS_ONE_OF_CLAUSE)) {
+            return oneOfClause(user, clause);
+        } else if (op.equals(NOT_ONE_OF_CLAUSE)) {
+            return !oneOfClause(user, clause);
+        } else if (op.equals(STARTS_WITH_CLAUSE)) {
+            return startsWithClause(user, clause);
+        } else if (op.equals(ENDS_WITH_CLAUSE)) {
+            return endsWithClause(user, clause);
+        } else if (op.equals(IS_TRUE_CLAUSE)) {
+            return trueClause(user, clause);
+        } else if (op.equals(IS_FALSE_CLAUSE)) {
+            return falseClause(user, clause);
+        } else if (op.equals(MATCH_REGEX_CLAUSE)) {
+            return matchRegExClause(user, clause);
+        } else if (op.equals(NOT_MATCH_REGEX_CLAUSE)) {
+            return !matchRegExClause(user, clause);
+        } else if (op.equals(IS_IN_SEGMENT_CLAUSE)) {
+            return inSegmentClause(user, clause);
+        } else if (op.equals(NOT_IN_SEGMENT_CLAUSE)) {
+            return !inSegmentClause(user, clause);
+        }
+        return false;
+    }
+
+    private boolean inSegmentClause(FFCUser user, DataModel.RuleItem clause) {
         String pv = user.getKey();
         try {
             List<String> clauseValues = JsonHelper.deserialize(clause.getValue(), new TypeToken<List<String>>() {
             }.getType());
-            return clauseValues.stream().map(segmentGetter::get).anyMatch(segment -> segment != null && segment.isMatchUser(pv));
+            return clauseValues.stream().map(segmentGetter::get).anyMatch(segment -> {
+                if (segment == null) {
+                    return false;
+                }
+                Boolean isInSegment = segment.isMatchUser(pv);
+                if (isInSegment == null) {
+                    return segment
+                            .getRules()
+                            .stream()
+                            .anyMatch(rule -> ifUserMatchRule(user, rule.getRuleJsonContent()));
+                }
+                return isInSegment;
+            });
         } catch (JsonParseException e) {
             return false;
         }
     }
 
-    private boolean falseClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
+    private boolean falseClause(FFCUser user, DataModel.RuleItem clause) {
         String pv = user.getProperty(clause.getProperty());
         //TODO add list of false keyword
         return pv != null && pv.equalsIgnoreCase("false");
     }
 
-    private boolean matchRegExClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
+    private boolean matchRegExClause(FFCUser user, DataModel.RuleItem clause) {
         String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
-        return pv != null && Pattern.compile(Pattern.quote(clauseValue), Pattern.CASE_INSENSITIVE).matcher(pv).find();
+        return pv != null && Pattern.compile(clauseValue).matcher(pv).matches();
     }
 
-    private boolean trueClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
+    private boolean trueClause(FFCUser user, DataModel.RuleItem clause) {
         String pv = user.getProperty(clause.getProperty());
         //TODO add list of true keyword
         return pv != null && pv.equalsIgnoreCase("true");
     }
 
-    private boolean endsWithClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
+    private boolean endsWithClause(FFCUser user, DataModel.RuleItem clause) {
         String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
         return pv != null && pv.endsWith(clauseValue);
     }
 
-    private boolean startsWithClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
+    private boolean startsWithClause(FFCUser user, DataModel.RuleItem clause) {
         String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
         return pv != null && pv.startsWith(clauseValue);
     }
 
-    private boolean thanClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
+    private boolean thanClause(FFCUser user, DataModel.RuleItem clause) {
         String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
         if (!StringUtils.isNumeric(pv) || !StringUtils.isNumeric(clauseValue)) {
@@ -202,19 +216,19 @@ final class EvaluatorImp extends Evaluator {
         }
     }
 
-    private boolean equalsClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
+    private boolean equalsClause(FFCUser user, DataModel.RuleItem clause) {
         String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
         return clauseValue.equals(pv);
     }
 
-    private boolean containsClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
+    private boolean containsClause(FFCUser user, DataModel.RuleItem clause) {
         String pv = user.getProperty(clause.getProperty());
         String clauseValue = clause.getValue();
         return pv != null && pv.contains(clauseValue);
     }
 
-    private boolean oneOfClause(FFCUser user, DataModel.FeatureFlagRuleJsonContent clause) {
+    private boolean oneOfClause(FFCUser user, DataModel.RuleItem clause) {
         String pv = user.getProperty(clause.getProperty());
         try {
             List<String> clauseValues = JsonHelper.deserialize(clause.getValue(), new TypeToken<List<String>>() {

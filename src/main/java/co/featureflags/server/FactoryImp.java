@@ -40,7 +40,7 @@ abstract class FactoryImp {
     static final class StreamingBuilderImpl extends StreamingBuilder {
         @Override
         public UpdateProcessor createUpdateProcessor(Context config, Status.DataUpdator dataUpdator) {
-            Loggers.UPDATE_PROCESSOR.info("Choose Streaming Update Processor");
+            Loggers.UPDATE_PROCESSOR.debug("Choose Streaming Update Processor");
             streamingURI = streamingURI == null ? DEFAULT_STREAMING_URI : streamingURI;
             firstRetryDelay = firstRetryDelay == null ? DEFAULT_FIRST_RETRY_DURATION : firstRetryDelay;
             return new Streaming(dataUpdator, config, streamingURI, firstRetryDelay, maxRetryTimes);
@@ -62,7 +62,7 @@ abstract class FactoryImp {
 
         @Override
         public DataStorage createDataStorage(Context config) {
-            Loggers.CLIENT.info("Null Data Storage is only used for test");
+            Loggers.CLIENT.debug("Null Data Storage is only used for test");
             return NullDataStorage.SINGLETON;
         }
     }
@@ -113,9 +113,9 @@ abstract class FactoryImp {
         @Override
         public UpdateProcessor createUpdateProcessor(Context config, Status.DataUpdator dataUpdator) {
             if (config.basicConfig().isOffline()) {
-                Loggers.CLIENT.info("SDK is in offline mode");
+                Loggers.CLIENT.debug("SDK is in offline mode");
             } else {
-                Loggers.CLIENT.info("SDK won't connect to feature-flag.co");
+                Loggers.CLIENT.debug("SDK won't connect to feature-flag.co");
             }
             return new NullUpdateProcessor(dataUpdator);
         }
@@ -169,7 +169,7 @@ abstract class FactoryImp {
 
         @Override
         public InsightProcessor createInsightProcessor(Context context) {
-            Loggers.CLIENT.info("Null Insight processor is only used in offline mode");
+            Loggers.CLIENT.debug("Null Insight processor is only used in offline mode");
             return NullInsightProcessor.SINGLETON;
         }
     }

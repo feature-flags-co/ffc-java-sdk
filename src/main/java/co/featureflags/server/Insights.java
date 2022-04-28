@@ -35,7 +35,7 @@ abstract class Insights {
             new EventDispatcher(config, inbox);
             this.flushScheduledExecutor = new ScheduledThreadPoolExecutor(1, Utils.createThreadFactory("insight-periodic-flush-worker-%d", true));
             flushScheduledExecutor.scheduleAtFixedRate(this::flush, config.flushInterval, config.flushInterval, TimeUnit.MILLISECONDS);
-            Loggers.EVENTS.info("insight processor is ready");
+            Loggers.EVENTS.debug("insight processor is ready");
         }
 
         @Override
@@ -59,7 +59,7 @@ abstract class Insights {
         @Override
         public void close() {
             if (closed.compareAndSet(false, true)) {
-                Loggers.EVENTS.info("event process is stopping");
+                Loggers.EVENTS.info("FFC JAVA SDK: insight processor is stopping");
                 Utils.shutDownThreadPool("insight-periodic-flush-worker", flushScheduledExecutor, AWAIT_TERMINATION);
                 //flush all the left events
                 putEventAsync(InsightTypes.InsightMessageType.FLUSH, null);
@@ -98,7 +98,7 @@ abstract class Insights {
             // if it reaches here, it means the application is probably doing tons of flag
             // evaluations across many threads-- so if we wait for a space in the inbox, we risk a very serious slowdown
             // of the app. To avoid that, we'll just drop the event or you can increase the capacity of inbox
-            Loggers.EVENTS.warn("Events are being produced faster than they can be processed; some events will be dropped");
+            Loggers.EVENTS.warn("FFC JAVA SDK: events are being produced faster than they can be processed; some events will be dropped");
             return false;
         }
 
@@ -124,7 +124,7 @@ abstract class Insights {
                 String json = JsonHelper.serialize(payload);
                 config.getSender().sendEvent(config.getEventUrl(), json);
             } catch (Exception unexpected) {
-                Loggers.EVENTS.error("unexpected error in sending payload: {}", unexpected.getMessage());
+                Loggers.EVENTS.error("FFC JAVA SDK: unexpected error in sending payload: {}", unexpected.getMessage());
             }
             permits.release();
             synchronized (busyFlushPaypladThreadNum) {
@@ -151,7 +151,13 @@ abstract class Insights {
         public EventDispatcher(InsightTypes.InsightConfig config, BlockingQueue<InsightTypes.InsightMessage> inbox) {
             this.config = config;
             this.inbox = inbox;
-            this.threadPoolExecutor = new ThreadPoolExecutor(MAX_FLUSH_WORKERS_NUMBER, MAX_FLUSH_WORKERS_NUMBER, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(MAX_QUEUE_SIZE), Utils.createThreadFactory("flush-payload-worker-%d", true), new ThreadPoolExecutor.CallerRunsPolicy());
+            this.threadPoolExecutor = new ThreadPoolExecutor(MAX_FLUSH_WORKERS_NUMBER,
+                    MAX_FLUSH_WORKERS_NUMBER,
+                    0L,
+                    TimeUnit.MILLISECONDS,
+                    new LinkedBlockingQueue<>(MAX_QUEUE_SIZE),
+                    Utils.createThreadFactory("flush-payload-worker-%d", true),
+                    new ThreadPoolExecutor.CallerRunsPolicy());
             Thread mainThread = Utils.createThreadFactory("event-dispatcher", true).newThread(this::dispatchEvents);
             mainThread.start();
 
@@ -159,7 +165,7 @@ abstract class Insights {
 
         private void dispatchEvents() {
             List<InsightTypes.InsightMessage> messages = new ArrayList<>();
-            Loggers.EVENTS.info("event dispatcher is working...");
+            Loggers.EVENTS.debug("event dispatcher is working...");
             while (true) {
                 try {
                     messages.clear();
@@ -182,12 +188,12 @@ abstract class Insights {
                             }
                             message.completed();
                         } catch (Exception unexpected) {
-                            Loggers.EVENTS.error("unexpected error in event dispatcher {}", unexpected.getMessage());
+                            Loggers.EVENTS.error("FFC JAVA SDK: unexpected error in event dispatcher {}", unexpected.getMessage());
                         }
                     }
                 } catch (InterruptedException ignore) {
                 } catch (Exception unexpected) {
-                    Loggers.EVENTS.error("unexpected error in event dispatcher {}", unexpected.getMessage());
+                    Loggers.EVENTS.error("FFC JAVA SDK: unexpected error in event dispatcher {}", unexpected.getMessage());
                 }
             }
         }
@@ -247,7 +253,7 @@ abstract class Insights {
                     config.getSender().close();
                 }
             } catch (Exception unexpected) {
-                Loggers.EVENTS.error("unexpected error when closing event dispatcher: {}", unexpected.getMessage());
+                Loggers.EVENTS.error("FFC JAVA SDK: unexpected error when closing event dispatcher: {}", unexpected.getMessage());
             }
         }
 

@@ -111,7 +111,7 @@ final class Streaming implements UpdateProcessor {
 
     @Override
     public Future<Boolean> start() {
-        logger.info("Streaming Starting...");
+        logger.debug("Streaming Starting...");
         // flags reset to original state
         connCount.set(0);
         isWSConnected.set(false);
@@ -127,15 +127,15 @@ final class Streaming implements UpdateProcessor {
 
     @Override
     public void close() {
-        logger.info("Streaming is stopping...");
+        logger.info("FFC JAVA SDK: streaming is stopping...");
         if (webSocket != null) {
             webSocket.close(NORMAL_CLOSE, NORMAL_CLOSE_REASON);
         }
     }
 
     private void ping() {
-        if (webSocket != null) {
-            // logger.debug("ping");
+        if (webSocket != null && isWSConnected.get()) {
+            logger.trace("ping");
             String json = JsonHelper.serialize(new DataModel.DataSyncMessage(null));
             webSocket.send(json);
         }
@@ -150,12 +150,12 @@ final class Streaming implements UpdateProcessor {
 
     private void connect() {
         if (isWSConnected.get()) {
-            logger.error("Streaming WebSocket is already Connected");
+            logger.error("FFC JAVA SDK: streaming websocket is already Connected");
             return;
         }
         int count = connCount.getAndIncrement();
         if (count >= maxRetryTimes) {
-            logger.error("Streaming WebSocket have reached max retry");
+            logger.error("FFC JAVA SDK: streaming websocket have reached max retry");
             return;
         }
 
@@ -166,7 +166,7 @@ final class Streaming implements UpdateProcessor {
                 .headers(headers)
                 .url(url)
                 .build();
-        logger.info("Streaming WebSocket is connecting...");
+        logger.debug("Streaming WebSocket is connecting...");
         strategy.setGoodRunAtNow();
         webSocket = okHttpClient.newWebSocket(request, listener);
     }
@@ -175,10 +175,9 @@ final class Streaming implements UpdateProcessor {
         try {
             Duration delay = strategy.nextDelay(forceToUseMaxRetryDelay);
             long delayInMillis = delay.toMillis();
-            logger.info("Streaming WebSocket will reconnect in {} milliseconds", delayInMillis);
+            logger.debug("Streaming WebSocket will reconnect in {} milliseconds", delayInMillis);
             Thread.sleep(delayInMillis);
-        } catch (InterruptedException ie) {
-            logger.warn("unexpected interruption {}", ie.getMessage());
+        } catch (InterruptedException ignore) {
         } finally {
             connect();
         }
@@ -217,7 +216,7 @@ final class Streaming implements UpdateProcessor {
             if (initialized.compareAndSet(false, true)) {
                 initFuture.complete(true);
             }
-            logger.info("processing data is well done");
+            logger.debug("processing data is well done");
             updator.updateStatus(Status.StateType.OK, null);
         } else {
             // reconnect to server to get back data after data storage failed
@@ -233,10 +232,10 @@ final class Streaming implements UpdateProcessor {
         // if received data is invalid
         @Override
         public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
-            // logger.debug(text);
+            logger.trace(text);
             DataModel.StreamingMessage message = JsonHelper.deserialize(text, DataModel.StreamingMessage.class);
             if (DATA_SYNC.equalsIgnoreCase(message.getMessageType())) {
-                logger.info("Streaming WebSocket is processing data");
+                logger.debug("Streaming WebSocket is processing data");
                 DataModel.All all = JsonHelper.deserialize(text, DataModel.All.class);
                 if (all.isProcessData()) {
                     try {
@@ -277,7 +276,7 @@ final class Streaming implements UpdateProcessor {
                 isReconn = true;
                 message = StringUtils.isEmpty(reason) ? "unexpected close" : reason;
             }
-            logger.info("Streaming WebSocket close reason: {}", message);
+            logger.debug("Streaming WebSocket close reason: {}", message);
             isWSConnected.compareAndSet(true, false);
 
             if (isReconn) {
@@ -301,7 +300,7 @@ final class Streaming implements UpdateProcessor {
 
         @Override
         public final void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t, @Nullable Response response) {
-            logger.error("Streaming WebSocket Failure", t);
+            logger.error("FFC JAVA SDK: streaming webSocket Failure", t);
             isWSConnected.compareAndSet(true, false);
             boolean forceToUseMaxRetryDelay = false;
             boolean isReconn = false;
@@ -342,7 +341,7 @@ final class Streaming implements UpdateProcessor {
 
         @Override
         public void onOpen(@NotNull WebSocket webSocket, @NotNull Response response) {
-            logger.info("Ask Data Updating, http code {}", response.code());
+            logger.debug("Ask Data Updating, http code {}", response.code());
             isWSConnected.compareAndSet(false, true);
         }
     }

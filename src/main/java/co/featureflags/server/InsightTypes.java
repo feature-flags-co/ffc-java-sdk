@@ -168,7 +168,7 @@ public abstract class InsightTypes {
                 JsonObject var = new JsonObject();
                 var.addProperty("featureFlagKeyName", variation.getFeatureFlagKeyName());
                 var.addProperty("sendToExperiment", variation.getVariation().isSendToExperiment());
-                var.addProperty("timestamp", variation.getTimestamp());
+                var.addProperty("timestamp", Instant.now().toEpochMilli());
                 JsonObject v = new JsonObject();
                 v.addProperty("localId", variation.getVariation().getIndex());
                 v.addProperty("variationValue", variation.getVariation().getValue());
