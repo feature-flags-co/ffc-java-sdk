@@ -8,6 +8,8 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -54,49 +56,64 @@ final class EvaluatorImp extends Evaluator {
             // TODO useless code
             er = EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_FALLTHROUGH, false, flag.getInfo().getKeyName(), flag.getInfo().getName());
             return er;
+        } catch (Exception e) {
+            throw e;
         } finally {
-            logger.info("FFC JAVA SDK: User {}, Feature Flag {}, Flag Value {}", user.getKey(), flag.getInfo().getKeyName(), er.getValue());
-            if (er != null && event != null) {
-                event.add(InsightTypes.FlagEventVariation.of(flag.getInfo().getKeyName(), er));
+            if (er != null) {
+                logger.info("FFC JAVA SDK: User {}, Feature Flag {}, Flag Value {}", user.getKey(), flag.getInfo().getKeyName(), er.getValue());
+                if (event != null) {
+                    event.add(InsightTypes.FlagEventVariation.of(flag.getInfo().getKeyName(), er));
+                }
             }
         }
     }
 
-    private EvalResult matchFeatureFlagDisabledUserVariation(DataModel.FeatureFlag flag, FFCUser user, InsightTypes.Event event) {
+    private EvalResult matchFeatureFlagDisabledUserVariation(DataModel.FeatureFlag flag, FFCUser
+            user, InsightTypes.Event event) {
         // case flag is off
         if (FLAG_DISABLE_STATS.equals(flag.getInfo().getStatus())) {
             return EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_FLAG_OFF, false, flag.getInfo().getKeyName(), flag.getInfo().getName());
         }
         // case prerequisite is set
         return flag.getPrerequisites().stream().filter(prerequisite -> {
-            String preFlagId = prerequisite.getPrerequisiteFeatureFlagId();
-            if (!preFlagId.equals(flag.getInfo().getId())) {
-                DataModel.FeatureFlag preFlag = this.flagGetter.get(preFlagId);
-                if (preFlag == null) {
-                    String preFlagKey = FeatureFlagKeyExtension.unpackFeatureFlagId(preFlagId, 4);
-                    logger.warn("prerequisite flag {} not found", preFlagKey);
-                    return true;
-                }
-                EvalResult er = matchUserVariation(preFlag, user, event);
-                // even if prerequisite flag is off, check if default value of prerequisite flag matches expected value
-                // if prerequisite failed, return the default value of this flag
-                return !er.getIndex().equals(prerequisite.getValueOptionsVariationValue().getLocalId());
+                    String preFlagId = prerequisite.getPrerequisiteFeatureFlagId();
+                    if (!preFlagId.equals(flag.getInfo().getId())) {
+                        DataModel.FeatureFlag preFlag = this.flagGetter.get(preFlagId);
+                        if (preFlag == null) {
+                            String preFlagKey = FeatureFlagKeyExtension.unpackFeatureFlagId(preFlagId, 4);
+                            logger.warn("prerequisite flag {} not found", preFlagKey);
+                            return true;
+                        }
+                        EvalResult er = matchUserVariation(preFlag, user, event);
+                        // even if prerequisite flag is off, check if default value of prerequisite flag matches expected value
+                        // if prerequisite failed, return the default value of this flag
+                        return !er.getIndex().equals(prerequisite.getValueOptionsVariationValue().getLocalId());
 
-            }
-            return false;
-        }).findFirst().map(prerequisite -> EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_PREREQUISITE_FAILED, false, flag.getInfo().getKeyName(), flag.getInfo().getName())).orElse(null);
+                    }
+                    return false;
+                }).findFirst()
+                .map(prerequisite -> EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_PREREQUISITE_FAILED, false, flag.getInfo().getKeyName(), flag.getInfo().getName()))
+                .orElse(null);
     }
 
     private EvalResult matchTargetedUserVariation(DataModel.FeatureFlag featureFlag, FFCUser user) {
-        return featureFlag.getTargets().stream().filter(target -> target.isTargeted(user.getKey())).findFirst().map(target -> EvalResult.of(target.getValueOption(), REASON_TARGET_MATCH, featureFlag.isExptIncludeAllRules(), featureFlag.getInfo().getKeyName(), featureFlag.getInfo().getName())).orElse(null);
+        return featureFlag.getTargets().stream()
+                .filter(target -> target.isTargeted(user.getKey()))
+                .findFirst()
+                .map(target -> EvalResult.of(target.getValueOption(), REASON_TARGET_MATCH, isSendToExperimentForTargetedUserVariation(featureFlag.isExptIncludeAllRules()), featureFlag.getInfo().getKeyName(), featureFlag.getInfo().getName()))
+                .orElse(null);
     }
 
     private EvalResult matchConditionedUserVariation(DataModel.FeatureFlag featureFlag, FFCUser user) {
         DataModel.TargetRule targetRule = featureFlag.getRules().stream().filter(rule -> ifUserMatchRule(user, rule.getRuleJsonContent())).findFirst().orElse(null);
         // optional flatmap can't infer inner type of collection
-        return targetRule == null ? null : getRollOutVariationOption(targetRule.getValueOptionsVariationRuleValues(), user, REASON_RULE_MATCH, targetRule.isIncludedInExpt(), featureFlag.getInfo().getKeyName(), featureFlag.getInfo().getName());
-
-
+        return targetRule == null ? null : getRollOutVariationOption(targetRule.getValueOptionsVariationRuleValues(),
+                user,
+                REASON_RULE_MATCH,
+                featureFlag.isExptIncludeAllRules(),
+                targetRule.isIncludedInExpt(),
+                featureFlag.getInfo().getKeyName(),
+                featureFlag.getInfo().getName());
     }
 
     private boolean ifUserMatchRule(FFCUser user, List<DataModel.RuleItem> clauses) {
@@ -240,11 +257,62 @@ final class EvaluatorImp extends Evaluator {
     }
 
     private EvalResult matchDefaultUserVariation(DataModel.FeatureFlag featureFlag, FFCUser user) {
-        return getRollOutVariationOption(featureFlag.getInfo().getDefaultRulePercentageRollouts(), user, REASON_FALLTHROUGH, featureFlag.getInfo().isDefaultRulePercentageRolloutsIncludedInExpt(), featureFlag.getInfo().getKeyName(), featureFlag.getInfo().getName());
+        return getRollOutVariationOption(featureFlag.getInfo().getDefaultRulePercentageRollouts(),
+                user,
+                REASON_FALLTHROUGH,
+                featureFlag.isExptIncludeAllRules(),
+                featureFlag.getInfo().isDefaultRulePercentageRolloutsIncludedInExpt(),
+                featureFlag.getInfo().getKeyName(),
+                featureFlag.getInfo().getName());
     }
 
-    private EvalResult getRollOutVariationOption(Collection<DataModel.VariationOptionPercentageRollout> rollouts, FFCUser user, String reason, boolean sendToExperiment, String flagKeyName, String flagName) {
-        return rollouts.stream().filter(rollout -> VariationSplittingAlgorithm.ifKeyBelongsPercentage(user.getKey(), rollout.getRolloutPercentage())).findFirst().map(rollout -> EvalResult.of(rollout.getValueOption(), reason, sendToExperiment, flagKeyName, flagName)).orElse(null);
+    private EvalResult getRollOutVariationOption
+            (Collection<DataModel.VariationOptionPercentageRollout> rollouts,
+             FFCUser user,
+             String reason,
+             Boolean exptIncludeAllRules,
+             Boolean ruleIncludedInExperiment,
+             String flagKeyName,
+             String flagName) {
+        String newUserKey = Base64.getEncoder().encodeToString(user.getKey().getBytes());
+        return rollouts.stream()
+                .filter(rollout -> VariationSplittingAlgorithm.ifKeyBelongsPercentage(user.getKey(), rollout.getRolloutPercentage()))
+                .findFirst()
+                .map(rollout -> EvalResult.of(rollout.getValueOption(), reason, isSendToExperiment(newUserKey, rollout, exptIncludeAllRules, ruleIncludedInExperiment), flagKeyName, flagName))
+                .orElse(null);
+    }
+
+    private boolean isSendToExperimentForTargetedUserVariation(Boolean exptIncludeAllRules) {
+        return exptIncludeAllRules == null || exptIncludeAllRules.booleanValue();
+    }
+
+    private boolean isSendToExperiment(String userKey,
+                                       DataModel.VariationOptionPercentageRollout rollout,
+                                       Boolean exptIncludeAllRules,
+                                       Boolean ruleIncludedInExperiment) {
+        if (exptIncludeAllRules == null || exptIncludeAllRules.booleanValue()) {
+            return true;
+        }
+
+        if (ruleIncludedInExperiment == null || rollout.getExptRollout() == null) {
+            return true;
+        }
+
+        if (!ruleIncludedInExperiment) {
+            return false;
+        }
+
+        double sendToExperimentPercentage = rollout.getExptRollout();
+        double splittingPercentage = rollout.getRolloutPercentage().get(1) - rollout.getRolloutPercentage().get(0);
+        if (sendToExperimentPercentage == 0D || splittingPercentage == 0D) {
+            return false;
+        }
+
+        double upperBound = sendToExperimentPercentage / splittingPercentage;
+        if (upperBound > 1D) {
+            upperBound = 1D;
+        }
+        return VariationSplittingAlgorithm.ifKeyBelongsPercentage(userKey, Arrays.asList(0D, upperBound));
     }
 
 

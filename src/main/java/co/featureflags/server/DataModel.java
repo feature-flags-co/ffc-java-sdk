@@ -379,7 +379,7 @@ public abstract class DataModel {
         }
 
         public Boolean isExptIncludeAllRules() {
-            return exptIncludeAllRules == null ? Boolean.FALSE : exptIncludeAllRules;
+            return exptIncludeAllRules;
         }
 
         public FeatureFlagBasicInfo getInfo() {
@@ -447,7 +447,7 @@ public abstract class DataModel {
         }
 
         public Boolean isDefaultRulePercentageRolloutsIncludedInExpt() {
-            return isDefaultRulePercentageRolloutsIncludedInExpt == null ? Boolean.FALSE : isDefaultRulePercentageRolloutsIncludedInExpt;
+            return isDefaultRulePercentageRolloutsIncludedInExpt;
         }
 
         public Date getLastUpdatedTime() {
@@ -505,7 +505,7 @@ public abstract class DataModel {
         }
 
         public Boolean isIncludedInExpt() {
-            return isIncludedInExpt == null ? Boolean.FALSE : isIncludedInExpt;
+            return isIncludedInExpt;
         }
 
         public List<RuleItem> getRuleJsonContent() {
