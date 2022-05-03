@@ -72,7 +72,7 @@ public interface HttpConfig {
 
     /**
      * Returns the basic headers that should be added to all HTTP requests from SDK components to
-     * feature-flag.co API, based on the current SDK configuration.
+     * featureflag.co API, based on the current SDK configuration.
      *
      * @return a list of HTTP header names and values
      */

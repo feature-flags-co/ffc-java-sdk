@@ -38,6 +38,23 @@ public abstract class InsightTypes {
         public abstract Event add(Object element);
     }
 
+    final static class NullEvent extends Event {
+        static final NullEvent INSTANCE = new NullEvent();
+        private NullEvent() {
+            super(null);
+        }
+
+        @Override
+        public boolean isSendEvent() {
+            return false;
+        }
+
+        @Override
+        public Event add(Object element) {
+            return null;
+        }
+    }
+
     @JsonAdapter(FlagEventSerializer.class)
     final static class FlagEvent extends Event {
         private final List<FlagEventVariation> userVariations = new ArrayList<>();

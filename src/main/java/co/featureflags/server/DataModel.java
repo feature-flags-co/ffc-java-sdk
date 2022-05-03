@@ -142,7 +142,7 @@ public abstract class DataModel {
     }
 
     /**
-     * versioned data of feature flags and related data from feature-flag.co
+     * versioned data of feature flags and related data from featureflag.co
      */
     @JsonAdapter(JsonHelper.AfterJsonParseDeserializableTypeAdapterFactory.class)
     static class Data implements JsonHelper.AfterJsonParseDeserializable {

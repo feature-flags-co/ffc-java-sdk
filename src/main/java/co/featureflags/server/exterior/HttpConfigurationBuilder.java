@@ -62,7 +62,7 @@ public abstract class HttpConfigurationBuilder implements HttpConfigFactory {
     }
 
     /**
-     * Sets an HTTP proxy for making connections to feature-flag.co
+     * Sets an HTTP proxy for making connections to featureflag.co
      *
      * @param proxyHost the proxy hostname
      * @param proxyPort the proxy port
@@ -74,7 +74,7 @@ public abstract class HttpConfigurationBuilder implements HttpConfigFactory {
     }
 
     /**
-     * Sets a user implementation proxy for making connections to feature-flag.co
+     * Sets a user implementation proxy for making connections to featureflag.co
      *
      * @param proxy the proxy
      * @return the builder
@@ -108,7 +108,7 @@ public abstract class HttpConfigurationBuilder implements HttpConfigFactory {
     }
 
     /**
-     * Specifies a custom socket configuration for HTTP connections to feature-flag.co.
+     * Specifies a custom socket configuration for HTTP connections to featureflag.co.
      *
      * @param factory the socket factory
      * @return the builder
@@ -119,7 +119,7 @@ public abstract class HttpConfigurationBuilder implements HttpConfigFactory {
     }
 
     /**
-     * Specifies a custom security configuration for HTTPS connections to feature-flag.co.
+     * Specifies a custom security configuration for HTTPS connections to featureflag.co.
      *
      * @param factory      the SSL socket factory
      * @param trustManager the trust manager
