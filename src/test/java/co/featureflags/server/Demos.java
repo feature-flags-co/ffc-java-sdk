@@ -69,7 +69,9 @@ abstract class Demos {
                     monitoringPerf("evaluate", start, end);
                     Random rd = new Random();
                     if (rd.nextBoolean()) {
-                        client.trackMetric(user, "click2pay");
+                        System.out.println("input event name");
+                        line = scanner.nextLine();
+                        client.trackMetric(user, line);
                     }
                 } catch (Exception e) {
                     break;
