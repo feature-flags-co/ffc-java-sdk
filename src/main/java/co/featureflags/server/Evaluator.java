@@ -83,7 +83,7 @@ abstract class Evaluator {
             this.value = value;
             this.index = index;
             this.reason = reason;
-            this.sendToExperiment = true;
+            this.sendToExperiment = sendToExperiment;
             this.keyName = keyName;
             this.name = name;
         }
