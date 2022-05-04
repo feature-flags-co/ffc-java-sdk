@@ -7,7 +7,7 @@ import java.util.concurrent.Future;
 
 /**
  * Interface to receive updates to feature flags, user segments, and anything
- * else that might come from feature-flag.co, and passes them to a {@link DataStorage}.
+ * else that might come from featureflag.co, and passes them to a {@link DataStorage}.
  * <p>
  * The standard implementations are:
  * <ul>

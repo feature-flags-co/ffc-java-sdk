@@ -191,7 +191,7 @@ public interface FFCClient extends Closeable {
      * Returns a list of all feature flags value with details for a given user, including the reason
      * that describes the way the value was determined, that can be used on the client side sdk or a front end .
      * <p>
-     * note that this method does not send insight events back to feature-flag.co.
+     * note that this method does not send insight events back to featureflag.co.
      *
      * @param user the end user requesting the flag
      * @return a {@link AllFlagStates}

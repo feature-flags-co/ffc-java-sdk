@@ -45,6 +45,8 @@ abstract class Insights {
                     putEventAsync(InsightTypes.InsightMessageType.FLAGS, event);
                 } else if (event instanceof InsightTypes.MetricEvent) {
                     putEventAsync(InsightTypes.InsightMessageType.METRICS, event);
+                } else{
+                    Loggers.EVENTS.debug("ignore event type: {}", event.getClass().getName());
                 }
             }
         }

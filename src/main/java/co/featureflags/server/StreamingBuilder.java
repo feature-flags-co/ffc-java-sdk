@@ -20,7 +20,7 @@ import java.time.Duration;
  * </code></pre>
  */
 public abstract class StreamingBuilder implements UpdateProcessorFactory {
-    protected static final String DEFAULT_STREAMING_URI = "wss://api.feature-flags.co";
+    protected static final String DEFAULT_STREAMING_URI = "wss://api.featureflag.co";
     protected static final Duration DEFAULT_FIRST_RETRY_DURATION = Duration.ofSeconds(1);
     protected String streamingURI;
     protected Duration firstRetryDelay;

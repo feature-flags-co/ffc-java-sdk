@@ -34,10 +34,10 @@ abstract class Demos {
             String envSecret = "ZDMzLTY3NDEtNCUyMDIxMTAxNzIxNTYyNV9fMzZfXzQ2X185OF9fZGVmYXVsdF80ODEwNA==";
 
             StreamingBuilder streamingBuilder = Factory.streamingBuilder()
-                    .newStreamingURI("wss://api-dev.minjiekaiguan.com");
+                    .newStreamingURI("wss://api-dev.featureflag.co");
 
             InsightProcessorBuilder insightProcessorBuilder = Factory.insightProcessorFactory()
-                    .eventUri("https://api-dev.minjiekaiguan.com");
+                    .eventUri("https://api-dev.featureflag.co");
 
 
             FFCConfig config = new FFCConfig.Builder()
@@ -69,7 +69,9 @@ abstract class Demos {
                     monitoringPerf("evaluate", start, end);
                     Random rd = new Random();
                     if (rd.nextBoolean()) {
-                        client.trackMetric(user, "click2pay");
+                        System.out.println("input event name");
+                        line = scanner.nextLine();
+                        client.trackMetric(user, line);
                     }
                 } catch (Exception e) {
                     break;
@@ -87,10 +89,10 @@ abstract class Demos {
             String envSecret = "ZDMzLTY3NDEtNCUyMDIxMTAxNzIxNTYyNV9fMzZfXzQ2X185OF9fZGVmYXVsdF80ODEwNA==";
 
             StreamingBuilder streamingBuilder = Factory.streamingBuilder()
-                    .newStreamingURI("wss://api-dev.minjiekaiguan.com");
+                    .newStreamingURI("wss://api-dev.featureflag.co");
 
             InsightProcessorBuilder insightProcessorBuilder = Factory.insightProcessorFactory()
-                    .eventUri("https://api-dev.minjiekaiguan.com");
+                    .eventUri("https://api-dev.featureflag.co");
 
 
             FFCConfig config = new FFCConfig.Builder()
@@ -134,10 +136,10 @@ abstract class Demos {
             String envSecret = "ZDMzLTY3NDEtNCUyMDIxMTAxNzIxNTYyNV9fMzZfXzQ2X185OF9fZGVmYXVsdF80ODEwNA==";
 
             StreamingBuilder streamingBuilder = Factory.streamingBuilder()
-                    .newStreamingURI("wss://api-dev.minjiekaiguan.com");
+                    .newStreamingURI("wss://api-dev.featureflag.co");
 
             InsightProcessorBuilder insightProcessorBuilder = Factory.insightProcessorFactory()
-                    .eventUri("https://api-dev.minjiekaiguan.com");
+                    .eventUri("https://api-dev.featureflag.co");
 
             FFCConfig config = new FFCConfig.Builder()
                     .updateProcessorFactory(streamingBuilder)

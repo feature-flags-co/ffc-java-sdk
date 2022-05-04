@@ -12,9 +12,9 @@ import java.time.Duration;
  * Instances of this class must be constructed with a {@link co.featureflags.server.FFCConfig.Builder}.
  */
 public class FFCConfig {
-    static final String DEFAULT_BASE_URI = "https://api.feature-flags.co";
-    static final String DEFAULT_STREAMING_URI = "wss://api.feature-flags.co";
-    static final String DEFAULT_EVENTS_URI = "https://api.feature-flags.co";
+    static final String DEFAULT_BASE_URI = "https://api.featureflag.co";
+    static final String DEFAULT_STREAMING_URI = "wss://api.featureflag.co";
+    static final String DEFAULT_EVENTS_URI = "https://api.featureflag.co";
     static final Duration DEFAULT_START_WAIT_TIME = Duration.ofSeconds(15);
     static final FFCConfig DEFAULT = new FFCConfig.Builder().build();
 
@@ -110,7 +110,7 @@ public class FFCConfig {
 
         /**
          * Sets the implementation of the {@link co.featureflags.server.exterior.UpdateProcessor} that receives feature flag data
-         * from feature-flag.co, using a factory object. Depending on the implementation, the factory may be a builder that
+         * from featureflag.co, using a factory object. Depending on the implementation, the factory may be a builder that
          * allows you to set other configuration options as well.
          * The default is{@link Factory#streamingBuilder()}
          *
@@ -151,7 +151,7 @@ public class FFCConfig {
         /**
          * Set whether SDK is offline.
          *
-         * @param offline when set to true no connection to feature-flag.co any more
+         * @param offline when set to true no connection to featureflag.co any more
          * @return the builder
          */
         public Builder offline(boolean offline) {

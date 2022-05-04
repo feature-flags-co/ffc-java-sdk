@@ -11,7 +11,7 @@ import java.io.Closeable;
  * The standard implementations are:
  * <ul>
  * <li>{@link Factory#insightProcessorFactory()} (the default), which
- * sends events to feature-flag.co
+ * sends events to featureflag.co
  * <li>{@link Factory#noInsightInOffline()} which does nothing
  * (on the assumption that another process will send the events);
  * </ul>

@@ -56,8 +56,6 @@ final class EvaluatorImp extends Evaluator {
             // TODO useless code
             er = EvalResult.of(flag.getInfo().getVariationOptionWhenDisabled(), REASON_FALLTHROUGH, false, flag.getInfo().getKeyName(), flag.getInfo().getName());
             return er;
-        } catch (Exception e) {
-            throw e;
         } finally {
             if (er != null) {
                 logger.info("FFC JAVA SDK: User {}, Feature Flag {}, Flag Value {}", user.getKey(), flag.getInfo().getKeyName(), er.getValue());
@@ -283,14 +281,14 @@ final class EvaluatorImp extends Evaluator {
     }
 
     private boolean isSendToExperimentForTargetedUserVariation(Boolean exptIncludeAllRules) {
-        return exptIncludeAllRules == null || exptIncludeAllRules.booleanValue();
+        return exptIncludeAllRules == null || exptIncludeAllRules;
     }
 
     private boolean isSendToExperiment(String userKey,
                                        DataModel.VariationOptionPercentageRollout rollout,
                                        Boolean exptIncludeAllRules,
                                        Boolean ruleIncludedInExperiment) {
-        if (exptIncludeAllRules == null || exptIncludeAllRules.booleanValue()) {
+        if (exptIncludeAllRules == null) {
             return true;
         }
 

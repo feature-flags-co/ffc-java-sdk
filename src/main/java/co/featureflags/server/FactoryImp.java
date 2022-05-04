@@ -115,7 +115,7 @@ abstract class FactoryImp {
             if (config.basicConfig().isOffline()) {
                 Loggers.CLIENT.debug("SDK is in offline mode");
             } else {
-                Loggers.CLIENT.debug("SDK won't connect to feature-flag.co");
+                Loggers.CLIENT.debug("SDK won't connect to featureflag.co");
             }
             return new NullUpdateProcessor(dataUpdator);
         }

@@ -45,7 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
- * A client for the feature-flag.co API. The client is thread-safe.
+ * A client for the featureflag.co API. The client is thread-safe.
  */
 public final class FFCClientImp implements FFCClient {
 
@@ -63,14 +63,14 @@ public final class FFCClientImp implements FFCClient {
     private final Consumer<InsightTypes.Event> eventHandler;
 
     /**
-     * Creates a new client to connect to feature-flag.co with a specified configuration.
+     * Creates a new client to connect to featureflag.co with a specified configuration.
      * <p>
      * Applications SHOULD instantiate a single instance for the lifetime of the application. In
      * the case where an application needs to evaluate feature flags from different environments,
      * you may create multiple clients, but they should still be retained
      * for the lifetime of the application rather than created per request or per thread.
      * <p>
-     * The client try to connect to feature-flag.co as soon as the constructor is called. The constructor will return
+     * The client try to connect to featureflag.co as soon as the constructor is called. The constructor will return
      * when it successfully connects, or when the timeout (15 seconds) expires, whichever comes first.
      * If it has not succeeded in connecting when the timeout elapses, you will receive the client in an uninitialized state
      * where feature flags will return default values; it will still continue trying to connect in the background
@@ -85,7 +85,7 @@ public final class FFCClientImp implements FFCClient {
     }
 
     /**
-     * Creates a new client to connect to feature-flag.co with a specified configuration.
+     * Creates a new client to connect to featureflag.co with a specified configuration.
      * <p>
      * This constructor can be used to configure advanced SDK features; see {@link FFCConfig.Builder}.
      * <p>
@@ -95,7 +95,7 @@ public final class FFCClientImp implements FFCClient {
      * for the lifetime of the application rather than created per request or per thread.
      * <p>
      * Note that unless client is configured in offline mode{@link FFCConfig.Builder#offline(boolean)} or set by
-     * {@link Factory#externalOnlyDataUpdate()}, this client try to connect to feature-flag.co
+     * {@link Factory#externalOnlyDataUpdate()}, this client try to connect to featureflag.co
      * as soon as the constructor is called. The constructor will return when it successfully
      * connects, or when the timeout set by {@link FFCConfig.Builder#startWaitTime(java.time.Duration)} (default:
      * 15 seconds) expires, whichever comes first. If it has not succeeded in connecting when the timeout
@@ -138,7 +138,7 @@ public final class FFCClientImp implements FFCClient {
         //init components
         //Insight processor
         this.insightProcessor = config.getInsightProcessorFactory().createInsightProcessor(context);
-        this.eventHandler = event -> this.insightProcessor.send(event);
+        this.eventHandler = this.insightProcessor::send;
         //data storage
         this.storage = config.getDataStorageFactory().createDataStorage(context);
         //evaluator
@@ -279,7 +279,7 @@ public final class FFCClientImp implements FFCClient {
 
     @Override
     public int intVariation(String featureFlagKey, Integer defaultValue) {
-        return intVariation(featureFlagKey, defaultValue);
+        return intVariation(featureFlagKey, FFCUserContextHolder.getCurrentUser(), defaultValue);
     }
 
     @Override
@@ -412,7 +412,7 @@ public final class FFCClientImp implements FFCClient {
         ImmutableMap.Builder<EvalDetail<String>, InsightTypes.Event> builder = ImmutableMap.builder();
         boolean success = true;
         String errorString = null;
-        EvalDetail ed;
+        EvalDetail<String> ed;
         try {
             if (!isInitialized()) {
                 Loggers.EVALUATION.warn("FFC JAVA SDK: Evaluation is called before Java SDK client is initialized for feature flag");
@@ -421,7 +421,7 @@ public final class FFCClientImp implements FFCClient {
                         REASON_CLIENT_NOT_READY,
                         FLAG_KEY_UNKNOWN,
                         FLAG_NAME_UNKNOWN);
-                builder.put(ed, null);
+                builder.put(ed, InsightTypes.NullEvent.INSTANCE);
                 success = false;
                 errorString = REASON_CLIENT_NOT_READY;
             } else if (user == null || StringUtils.isBlank(user.getKey())) {
@@ -431,7 +431,7 @@ public final class FFCClientImp implements FFCClient {
                         REASON_USER_NOT_SPECIFIED,
                         FLAG_KEY_UNKNOWN,
                         FLAG_NAME_UNKNOWN);
-                builder.put(ed, null);
+                builder.put(ed, InsightTypes.NullEvent.INSTANCE);
                 success = false;
                 errorString = REASON_USER_NOT_SPECIFIED;
             } else {
@@ -455,7 +455,7 @@ public final class FFCClientImp implements FFCClient {
                     REASON_ERROR,
                     FLAG_KEY_UNKNOWN,
                     FLAG_NAME_UNKNOWN);
-            builder.put(ed, null);
+            builder.put(ed, InsightTypes.NullEvent.INSTANCE);
             success = false;
             errorString = REASON_ERROR;
         }
