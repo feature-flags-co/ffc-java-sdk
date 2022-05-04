@@ -58,7 +58,7 @@ install the sdk in using maven
         <dependency>
             <groupId>co.featureflags</groupId>
             <artifactId>ffc-java-server-sdk</artifactId>
-            <version>1.1</version>
+            <version>1.1.1</version>
         </dependency>
     </dependencies> 
   ```
