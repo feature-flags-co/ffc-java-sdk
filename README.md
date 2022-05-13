@@ -101,8 +101,8 @@ FFCClient client = new FFCClientImp(sdkKey, config);
     
 // later, when you want to wait for initialization to finish:
 boolean inited = client.getDataUpdateStatusProvider().waitForOKState(Duration.ofSeconds(15))
-if (!inited) {
-    // do whatever is appropriate if initialization has timed out
+if (inited) {
+    // do whatever is appropriate
 }
 ```
 
