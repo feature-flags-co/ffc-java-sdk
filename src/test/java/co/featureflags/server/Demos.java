@@ -1,26 +1,15 @@
 package co.featureflags.server;
 
 import co.featureflags.commons.model.AllFlagStates;
-import co.featureflags.commons.model.EvalDetail;
 import co.featureflags.commons.model.FFCUser;
 import co.featureflags.commons.model.FlagState;
-import co.featureflags.commons.model.VariationParams;
-import co.featureflags.server.exterior.BasicConfig;
-import co.featureflags.server.exterior.DefaultSender;
 import co.featureflags.server.exterior.FFCClient;
-import co.featureflags.server.exterior.HttpConfig;
-import com.google.common.io.Resources;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
-import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 abstract class Demos {
 

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This is the Java Server Side SDK for the feature management platform [feature-flags.co](feature-flags.co). It is
+This is the Java Server Side SDK for the feature management platform [featureflag.co](https://featureflag.co/). It is
 intended for use in a multiple-users Java server applications.
 
 This SDK has two main purposes:
@@ -19,7 +19,7 @@ internet interruption, but it would be restored automatically right after the pr
 
 ## Offline mode support
 
-In the offline mode, SDK DOES not exchange any data with [feature-flags.co](feature-flags.co)
+In the offline mode, SDK DOES not exchange any data with [featureflag.co](https://featureflag.co/)
 
 In the following situation, the SDK would work when there is no internet connection: it has been initialized in
 using `co.featureflags.server.exterior.FFCClient#initializeFromExternalJson(json)`
@@ -74,7 +74,7 @@ retained for the lifetime of the application rather than created per request or 
 ### Bootstrapping
 
 The bootstrapping is in fact the call of constructor of `FFCClientImp`, in which the SDK will be initialized, using
-streaming from [feature-flags.co](feature-flags.co).
+streaming from [featureflag.co](https://featureflag.co/).
 
 The constructor will return when it successfully connects, or when the timeout set
 by `FFCConfig.Builder#startWaitTime(Duration)`
@@ -180,10 +180,9 @@ SDK calculates the value of a feature flag for a given user, and returns a flag 
 that the value was determined.
 
 `FFUser`: A collection of attributes that can affect flag evaluation, usually corresponding to a user of your application.
-This object contains built-in properties(`key`, `userName`, `email` and `country`). The only mandatory property is the key,
-which must uniquely identify each user; this could be a username or email address for authenticated users, or a ID for anonymous users.
-All other built-in properties are optional, it's strongly recommended to set userName in order to search your user quickly
-You may also define custom properties with arbitrary names and values.
+This object contains built-in properties(`key`, `userName`, `email` and `country`). The `key` and `userName` are required.
+The `key` must uniquely identify each user; this could be a username or email address for authenticated users, or a ID for anonymous users.
+The `userName` is used to search your user quickly. All other built-in properties are optional, you may also define custom properties with arbitrary names and values.
 
 ```
     FFCClient client = new FFCClientImp(envSecret);
@@ -203,12 +202,14 @@ You may also define custom properties with arbitrary names and values.
         FlagState<String> res = client.variationDetail("flag key", user, "Not Found");
         // Flag value
         String res = client.variation("flag key", user, "Not Found");
+        // get all variations for a given user
+        AllFlagStates<String> res = client.getAllLatestFlagsVariations(user);
     }
     
 ```
 
 If evaluation called before Java SDK client initialized or you set the wrong flag key or user for the evaluation, SDK will return 
-the default value you set. The `FlagState` will explain the reason of the last evaluation error.
+the default value you set. The `FlagState` and `AllFlagStates` will all details of later evaluation including the error reason.
 
 SDK support the String, Boolean, and Number as the return type of flag values, see JavaDocs for more details.
 
