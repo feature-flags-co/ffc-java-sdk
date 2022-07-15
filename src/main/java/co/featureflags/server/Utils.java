@@ -87,17 +87,22 @@ public abstract class Utils {
         }
     }
 
-    private static final Map<String, String> ALPHABETS =
-            ImmutableMap.of("0", "Q",
-                    "1", "B",
-                    "2", "W",
-                    "3", "S",
-                    "4", "P",
-                    "5", "H",
-                    "6", "D",
-                    "7", "X",
-                    "8", "Z",
-                    "9", "U");
+    private static final Map<String, String> ALPHABETS;
+
+    static {
+        ImmutableMap.Builder<String, String> builder = new ImmutableMap.Builder<>();
+        ALPHABETS = builder.put("0", "Q")
+                .put("1", "B")
+                .put("2", "W")
+                .put("3", "S")
+                .put("4", "P")
+                .put("5", "H")
+                .put("6", "D")
+                .put("7", "X")
+                .put("8", "Z")
+                .put("9", "U")
+                .build();
+    }
 
     private static String encodeNumber(long number, int length) {
         String str = "000000000000" + number;
