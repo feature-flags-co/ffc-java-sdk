@@ -27,8 +27,8 @@ import java.time.Duration;
  * @see co.featureflags.server.Factory
  */
 public abstract class HttpConfigurationBuilder implements HttpConfigFactory {
-    protected final Duration DEFAULT_CONN_TIME = Duration.ofSeconds(10);
-    protected final Duration DEFAULT_SOCK_TIME = Duration.ofSeconds(15);
+    protected final Duration DEFAULT_CONN_TIME = Duration.ofSeconds(5);
+    protected final Duration DEFAULT_SOCK_TIME = Duration.ofSeconds(10);
     protected Duration connectTime;
     protected Duration socketTime;
     protected Proxy proxy;
