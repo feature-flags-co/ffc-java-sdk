@@ -261,7 +261,7 @@ public abstract class InsightTypes {
             }
         }
 
-        public void waitForComplete(Duration timeout) {
+        public void waitForComplete() {
             if (waitLock == null) {
                 return;
             }

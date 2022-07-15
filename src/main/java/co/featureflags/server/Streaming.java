@@ -57,7 +57,7 @@ final class Streaming implements UpdateProcessor {
     private static final String INVALID_REQUEST_CLOSE_REASON = "invalid request";
     private static final Integer GOING_AWAY_CLOSE = 1001;
     private static final String JUST_RECONN_REASON_REGISTERED = "reconn";
-    private static final int MAX_QUEUE_SIZE = 20;
+    private static final int MAX_QUEUE_SIZE = 10;
     private static final Duration PING_INTERVAL = Duration.ofSeconds(10);
     private static final Duration AWAIT_TERMINATION = Duration.ofSeconds(2);
     private static final String DEFAULT_STREAMING_PATH = "/streaming";
