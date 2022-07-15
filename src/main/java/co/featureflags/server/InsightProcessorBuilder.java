@@ -33,7 +33,7 @@ public abstract class InsightProcessorBuilder implements InsightEventSenderFacto
     protected final static int DEFAULT_CAPACITY = 10000;
     protected final static int DEFAULT_RETRY_DELAY = 100;
     protected final static int DEFAULT_RETRY_TIMES = 1;
-    protected final static Duration DEFAULT_FLUSH_INTERVAL = Duration.ofSeconds(3);
+    protected final static Duration DEFAULT_FLUSH_INTERVAL = Duration.ofSeconds(1);
 
 
     protected String eventUri;
