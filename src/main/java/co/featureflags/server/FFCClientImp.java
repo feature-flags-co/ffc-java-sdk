@@ -1,6 +1,7 @@
 package co.featureflags.server;
 
 import co.featureflags.commons.json.JsonHelper;
+import co.featureflags.commons.json.JsonParseException;
 import co.featureflags.commons.model.AllFlagStates;
 import co.featureflags.commons.model.EvalDetail;
 import co.featureflags.commons.model.FFCUser;
@@ -29,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
+import static co.featureflags.server.Evaluator.DEFAULT_JSON_VALUE;
 import static co.featureflags.server.Evaluator.FLAG_KEY_UNKNOWN;
 import static co.featureflags.server.Evaluator.FLAG_NAME_UNKNOWN;
 import static co.featureflags.server.Evaluator.FLAG_VALUE_UNKNOWN;
@@ -317,6 +319,53 @@ public final class FFCClientImp implements FFCClient {
         return longVariationDetail(featureFlagKey, FFCUserContextHolder.getCurrentUser(), defaultValue);
     }
 
+    @Override
+    public <T> T jsonVariation(String featureFlagKey, FFCUser user, Class<T> clazz, T defaultValue) {
+        String json = variation(featureFlagKey, user, DEFAULT_JSON_VALUE);
+        if (DEFAULT_JSON_VALUE.equals(json)) return defaultValue;
+        try {
+            return JsonHelper.deserialize(json, clazz);
+        } catch (JsonParseException ex) {
+            logger.error("FFC JAVA SDK: unexpected error in evaluation", ex);
+            return defaultValue;
+        }
+
+    }
+
+    @Override
+    public <T> T jsonVariation(String featureFlagKey, Class<T> clazz, T defaultValue) {
+        String json = variation(featureFlagKey, DEFAULT_JSON_VALUE);
+        if (DEFAULT_JSON_VALUE.equals(json)) return defaultValue;
+        try {
+            return JsonHelper.deserialize(json, clazz);
+        } catch (JsonParseException ex) {
+            logger.error("FFC JAVA SDK: unexpected error in evaluation", ex);
+            return defaultValue;
+        }
+    }
+
+    @Override
+    public <T> FlagState<T> jsonVariationDetail(String featureFlagKey, FFCUser user, Class<T> clazz, T defaultValue) {
+        T value;
+        Evaluator.EvalResult res = evaluateInternal(featureFlagKey, user, DEFAULT_JSON_VALUE, false);
+        if (DEFAULT_JSON_VALUE.equals(res.getValue())) {
+            value = defaultValue;
+        } else {
+            try {
+                value = JsonHelper.deserialize(res.getValue(), clazz);
+            } catch (JsonParseException ex) {
+                logger.error("FFC JAVA SDK: unexpected error in evaluation", ex);
+                value = defaultValue;
+            }
+        }
+        return EvalDetail.of(value, res.getIndex(), res.getReason(), featureFlagKey, featureFlagKey).toFlagState();
+    }
+
+    @Override
+    public <T> FlagState<T> jsonVariationDetail(String featureFlagKey, Class<T> clazz, T defaultValue) {
+        return jsonVariationDetail(featureFlagKey, FFCUserContextHolder.getCurrentUser(), clazz, defaultValue);
+    }
+
     Evaluator.EvalResult evaluateInternal(String featureFlagKey, FFCUser user, Object defaultValue, boolean checkType) {
         try {
             if (!isInitialized()) {
@@ -416,21 +465,13 @@ public final class FFCClientImp implements FFCClient {
         try {
             if (!isInitialized()) {
                 Loggers.EVALUATION.warn("FFC JAVA SDK: Evaluation is called before Java SDK client is initialized for feature flag");
-                ed = EvalDetail.of(FLAG_VALUE_UNKNOWN,
-                        NO_EVAL_RES,
-                        REASON_CLIENT_NOT_READY,
-                        FLAG_KEY_UNKNOWN,
-                        FLAG_NAME_UNKNOWN);
+                ed = EvalDetail.of(FLAG_VALUE_UNKNOWN, NO_EVAL_RES, REASON_CLIENT_NOT_READY, FLAG_KEY_UNKNOWN, FLAG_NAME_UNKNOWN);
                 builder.put(ed, InsightTypes.NullEvent.INSTANCE);
                 success = false;
                 errorString = REASON_CLIENT_NOT_READY;
             } else if (user == null || StringUtils.isBlank(user.getKey())) {
                 Loggers.EVALUATION.warn("FFC JAVA SDK: null user or feature flag");
-                ed = EvalDetail.of(FLAG_VALUE_UNKNOWN,
-                        NO_EVAL_RES,
-                        REASON_USER_NOT_SPECIFIED,
-                        FLAG_KEY_UNKNOWN,
-                        FLAG_NAME_UNKNOWN);
+                ed = EvalDetail.of(FLAG_VALUE_UNKNOWN, NO_EVAL_RES, REASON_USER_NOT_SPECIFIED, FLAG_KEY_UNKNOWN, FLAG_NAME_UNKNOWN);
                 builder.put(ed, InsightTypes.NullEvent.INSTANCE);
                 success = false;
                 errorString = REASON_USER_NOT_SPECIFIED;
@@ -440,21 +481,13 @@ public final class FFCClientImp implements FFCClient {
                     InsightTypes.Event event = InsightTypes.FlagEvent.of(user);
                     DataModel.FeatureFlag flag = (DataModel.FeatureFlag) item.item();
                     Evaluator.EvalResult res = evaluator.evaluate(flag, user, event);
-                    ed = EvalDetail.of(res.getValue(),
-                            res.getIndex(),
-                            res.getReason(),
-                            res.getKeyName(),
-                            res.getName());
+                    ed = EvalDetail.of(res.getValue(), res.getIndex(), res.getReason(), res.getKeyName(), res.getName());
                     builder.put(ed, event);
                 }
             }
         } catch (Exception ex) {
             logger.error("FFC JAVA SDK: unexpected error in evaluation", ex);
-            ed = EvalDetail.of(FLAG_VALUE_UNKNOWN,
-                    NO_EVAL_RES,
-                    REASON_ERROR,
-                    FLAG_KEY_UNKNOWN,
-                    FLAG_NAME_UNKNOWN);
+            ed = EvalDetail.of(FLAG_VALUE_UNKNOWN, NO_EVAL_RES, REASON_ERROR, FLAG_KEY_UNKNOWN, FLAG_NAME_UNKNOWN);
             builder.put(ed, InsightTypes.NullEvent.INSTANCE);
             success = false;
             errorString = REASON_ERROR;
@@ -495,8 +528,7 @@ public final class FFCClientImp implements FFCClient {
             Loggers.CLIENT.warn("FFC JAVA SDK: event/user/metric invalid");
             return;
         }
-        InsightTypes.Event event = InsightTypes.MetricEvent.of(user)
-                .add(InsightTypes.Metric.of(eventName, metricValue));
+        InsightTypes.Event event = InsightTypes.MetricEvent.of(user).add(InsightTypes.Metric.of(eventName, metricValue));
         insightProcessor.send(event);
     }
 

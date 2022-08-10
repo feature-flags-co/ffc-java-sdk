@@ -14,6 +14,8 @@ abstract class Evaluator {
     protected static final Logger logger = Loggers.EVALUATION;
     protected static final Integer NO_EVAL_RES = -1;
 
+    protected static final String DEFAULT_JSON_VALUE = "DJV";
+
     protected static final String REASON_USER_NOT_SPECIFIED = "user not specified";
     protected static final String REASON_FLAG_OFF = "flag off";
     protected static final String REASON_PREREQUISITE_FAILED = "prerequisite failed";
