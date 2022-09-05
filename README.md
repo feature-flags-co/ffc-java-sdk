@@ -3,40 +3,36 @@
 ## Introduction
 
 This is the Java Server Side SDK for the feature management platform [featureflag.co](https://featureflag.co/). It is
-intended for use in a multiple-users Java server applications.
+intended for use in a multi-user Java server applications.
 
 This SDK has two main purposes:
 
-- Store the available feature flags and evaluate the feature flags by given user in the server side SDK
-- Sends feature flags usage, and custom events for the insights and A/B/n testing.
+- Store the available feature flags and evaluate the feature flag variation for a given user
+- Send feature flag usage and custom events for the insights and A/B/n testing.
 
 ## Data synchonization
 
-We use websocket to make the local data synchronized with the server, and then store them in the memory by default.
-Whenever there is any changes to a feature flag or his related data, the changes would be pushed to the SDK, the average
-synchronization time is less than **100** ms. Be aware the websocket connection can be interrupted by any error or
-internet interruption, but it would be restored automatically right after the problem is gone.
+We use websocket to make the local data synchronized with the server, and then store them in memory by default.Whenever there is any change to a feature flag or its related data, this change will be pushed to the SDK, the average synchronization time is less than **100** ms. Be aware the websocket connection may be interrupted due to internet outage, but it will be resumed automatically once the problem is gone.
 
 ## Offline mode support
 
 In the offline mode, SDK DOES not exchange any data with [featureflag.co](https://featureflag.co/)
 
-In the following situation, the SDK would work when there is no internet connection: it has been initialized in
-using `co.featureflags.server.exterior.FFCClient#initializeFromExternalJson(json)`
+In the following situation, the SDK would work when there is no internet connection: it has been initialized in using `co.featureflags.server.exterior.FFCClient#initializeFromExternalJson(json)`
 
 To open the offline mode:
 
-```
+```java
  FFCConfig config = new FFCConfig.Builder()
-                    .offline(false)
-                    .build()
+                .offline(false)
+                .build()
  FFCClient client = new FFCClientImp(envSecret, config);
 ```
 
 ## Evaluation of a feature flag
 
 SDK will initialize all the related data(feature flags, segments etc.) in the bootstrapping and receive the data updates
-in real time, as mentioned in the above
+in real time, as mentioned in the above.
 
 After initialization, the SDK has all the feature flags in the memory and all evaluation is done locally and
 synchronously, the average evaluation time is < **10** ms.
@@ -45,22 +41,22 @@ synchronously, the average evaluation time is < **10** ms.
 
 install the sdk in using maven
 
-  ```
+  ```xml
 <repositories>
-        <repository>
-            <id>github-ffc-java-sdk-repo</id>
-            <name>The Maven Repository on Github</name>
-            <url>https://feature-flags-co.github.io/ffc-java-sdk/maven-repo</url>
-        </repository>
-    </repositories>
+    <repository>
+        <id>github-ffc-java-sdk-repo</id>
+        <name>The Maven Repository on Github</name>
+        <url>https://feature-flags-co.github.io/ffc-java-sdk/maven-repo</url>
+    </repository>
+</repositories>
 
-    <dependencies>
-        <dependency>
-            <groupId>co.featureflags</groupId>
-            <artifactId>ffc-java-server-sdk</artifactId>
-            <version>1.1.1</version>
-        </dependency>
-    </dependencies> 
+<dependencies>
+    <dependency>
+        <groupId>co.featureflags</groupId>
+        <artifactId>ffc-java-server-sdk</artifactId>
+        <version>1.1.1</version>
+    </dependency>
+</dependencies>
   ```
 
 ## SDK
@@ -83,7 +79,7 @@ you will receive the client in an uninitialized state where feature flags will r
 continue trying to connect in the background unless there has been an `java.net.ProtocolException` or you close the
 client(using `close()`). You can detect whether initialization has succeeded by calling `isInitialized()`.
 
-```
+```java
 FFCClient client = new FFCClientImp(sdkKey, config);
 if(client.isInitialized()){
 // do whatever is appropriate
@@ -93,10 +89,10 @@ if(client.isInitialized()){
 If you prefer to have the constructor return immediately, and then wait for initialization to finish at some other
 point, you can use `getDataUpdateStatusProvider()`, which provides an asynchronous way, as follows:
 
-```
+```java
 FFCConfig config = new FFCConfig.Builder()
-             .startWait(Duration.ZERO)
-             .build();
+               .startWait(Duration.ZERO)
+               .build();
 FFCClient client = new FFCClientImp(sdkKey, config);
     
 // later, when you want to wait for initialization to finish:
@@ -121,15 +117,15 @@ We strongly recommend to use the default configuration or just set `startWaitTim
 
 
 
-```
+```java
 // default configuration
 FFCConfig config = FFCConfig.DEFAULT
 
 // set startWaitTime and offline
 FFCConfig config = new FFCConfig.Builder()
-            .startWaitTime(Duration.ZERO)
-            .offline(false)
-            .build()
+               .startWaitTime(Duration.ZERO)
+               .offline(false)
+               .build()
 FFCClient client = new FFCClientImp(sdkKey, config);
 
 // default configuration
@@ -143,15 +139,14 @@ of build-in components.
 using a factory object. This object by defaut is a configuration builder obtained from `Factory#httpConfigFactory()`.
 With `HttpConfig`, Sets connection/read/write timeout, proxy or insecure/secure socket.
 
-```
-
+```java
 HttpConfigFactory factory = Factory.httpConfigFactory()
-                                   .connectTime(Duration.ofMillis(3000))
-                                   .httpProxy("my-proxy", 9000)
+        .connectTime(Duration.ofMillis(3000))
+        .httpProxy("my-proxy", 9000)
 
 FFCConfig config = new FFCConfig.Builder()
-                      .httpConfigFactory(factory)
-                      .build();
+        .httpConfigFactory(factory)
+        .build();
 ```
 
 
@@ -161,8 +156,8 @@ to instantiate a memory data storage. Developers can customize the data storage 
 
 ```
 FFCConfig config = new FFCConfig.Builder()
-                      .dataStorageFactory(factory)
-                      .build();
+        .dataStorageFactory(factory)
+        .build();
 
 ```
 
@@ -184,40 +179,39 @@ This object contains built-in properties(`key`, `userName`, `email` and `country
 The `key` must uniquely identify each user; this could be a username or email address for authenticated users, or a ID for anonymous users.
 The `userName` is used to search your user quickly. All other built-in properties are optional, you may also define custom properties with arbitrary names and values.
 
-```
-    FFCClient client = new FFCClientImp(envSecret);
-    
-    // FFUser creation
-    FFCUser user = new FFCUser.Builder("key")
-        .userName("name")
-        .country("country")
-        .email("email@xxx.com")
-        .custom("property", "value")
-        .build()
-    
-    // be sure that SDK is initialized
-    // this is not required
-    if(client.isInitialized()){
-        // Evaluation details
-        FlagState<String> res = client.variationDetail("flag key", user, "Not Found");
-        // Flag value
-        String res = client.variation("flag key", user, "Not Found");
-        // get all variations for a given user
-        AllFlagStates<String> res = client.getAllLatestFlagsVariations(user);
-    }
-    
+```java
+FFCClient client = new FFCClientImp(envSecret);
+
+// FFUser creation
+FFCUser user = new FFCUser.Builder("key")
+    .userName("name")
+    .country("country")
+    .email("email@xxx.com")
+    .custom("property", "value")
+    .build()
+
+// be sure that SDK is initialized
+// this is not required
+if(client.isInitialized()){
+    // Evaluation details
+    FlagState<String> res = client.variationDetail("flag key", user, "Not Found");
+    // Flag value
+    String res = client.variation("flag key", user, "Not Found");
+    // get all variations for a given user
+    AllFlagStates<String> res = client.getAllLatestFlagsVariations(user);
+}
 ```
 
 If evaluation called before Java SDK client initialized or you set the wrong flag key or user for the evaluation, SDK will return 
 the default value you set. The `FlagState` and `AllFlagStates` will all details of later evaluation including the error reason.
 
-SDK support the String, Boolean, and Number as the return type of flag values, see JavaDocs for more details.
+SDK supports String, Boolean, and Number as the return type of flag values, see JavaDocs for more details.
 
 ### Experiments (A/B/n Testing)
 We support automatic experiments for pageviews and clicks, you just need to set your experiment on our SaaS platform, then you should be able to see the result in near real time after the experiment is started.
 
 In case you need more control over the experiment data sent to our server, we offer a method to send custom event.
-```
+```java
 client.trackMetric(user, eventName, numericValue);
 ```
 **numericValue** is not mandatory, the default value is **1**.
