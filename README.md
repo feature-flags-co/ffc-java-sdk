@@ -23,10 +23,10 @@ In the following situation, the SDK would work when there is no internet connect
 To open the offline mode:
 
 ```java
- FFCConfig config = new FFCConfig.Builder()
-                .offline(false)
-                .build()
- FFCClient client = new FFCClientImp(envSecret, config);
+FFCConfig config = new FFCConfig.Builder()
+               .offline(false)
+               .build()
+FFCClient client = new FFCClientImp(envSecret, config);
 ```
 
 ## Evaluation of a feature flag
@@ -40,8 +40,7 @@ synchronously, the average evaluation time is < **10** ms.
 ## Installation
 
 install the sdk in using maven
-
-  ```xml
+```xml
 <repositories>
     <repository>
         <id>github-ffc-java-sdk-repo</id>
@@ -57,7 +56,7 @@ install the sdk in using maven
         <version>1.1.1</version>
     </dependency>
 </dependencies>
-  ```
+```
 
 ## SDK
 
@@ -154,11 +153,10 @@ FFCConfig config = new FFCConfig.Builder()
 user segments or any other related data received by the SDK. SDK sets the implementation of the data storage, using `Factory#inMemoryDataStorageFactory()`
 to instantiate a memory data storage. Developers can customize the data storage to persist received data in redis, mongodb, etc.
 
-```
+```java
 FFCConfig config = new FFCConfig.Builder()
         .dataStorageFactory(factory)
         .build();
-
 ```
 
 `UpdateProcessorFactory` SDK sets the implementation of the `UpdateProcessor` that receives feature flag data from feature-flag.co, 
