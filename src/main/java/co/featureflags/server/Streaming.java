@@ -57,13 +57,13 @@ final class Streaming implements UpdateProcessor {
     private static final String INVALID_REQUEST_CLOSE_REASON = "invalid request";
     private static final Integer GOING_AWAY_CLOSE = 1001;
     private static final String JUST_RECONN_REASON_REGISTERED = "reconn";
-    private static final int MAX_QUEUE_SIZE = 20;
+    private static final int MAX_QUEUE_SIZE = 10;
     private static final Duration PING_INTERVAL = Duration.ofSeconds(10);
     private static final Duration AWAIT_TERMINATION = Duration.ofSeconds(2);
     private static final String DEFAULT_STREAMING_PATH = "/streaming";
     private static final String AUTH_PARAMS = "?token=%s&type=server&version=2";
     private static final Map<Integer, String> NOT_RECONN_CLOSE_REASON = ImmutableMap.of(NORMAL_CLOSE, NORMAL_CLOSE_REASON, INVALID_REQUEST_CLOSE, INVALID_REQUEST_CLOSE_REASON);
-    private static final List<Class<? extends Exception>> RECONNECT_EXCEPTIONS = ImmutableList.of(SocketTimeoutException.class, SocketException.class, EOFException.class);
+    private static final List<Class<? extends Exception>> WEBSOCKET_EXCEPTION = ImmutableList.of(SocketTimeoutException.class, SocketException.class, EOFException.class);
     private static final Logger logger = Loggers.UPDATE_PROCESSOR;
 
     // final viariables
@@ -300,7 +300,6 @@ final class Streaming implements UpdateProcessor {
 
         @Override
         public final void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t, @Nullable Response response) {
-            logger.error("FFC JAVA SDK: streaming webSocket Failure", t);
             isWSConnected.compareAndSet(true, false);
             boolean forceToUseMaxRetryDelay = false;
             boolean isReconn = false;
@@ -311,28 +310,23 @@ final class Streaming implements UpdateProcessor {
                 isReconn = tClass != JsonParseException.class;
                 errorType = isReconn ? RUNTIME_ERROR : DATA_INVALID_ERROR;
             } else {
-                // restart a cause of network error
-                for (Class<? extends Exception> cls : RECONNECT_EXCEPTIONS) {
-                    if (tClass == cls) {
-                        isReconn = true;
-                        errorType = NETWORK_ERROR;
-                        // maybe kicked off by server side
-                        if (tClass == EOFException.class) {
-                            forceToUseMaxRetryDelay = true;
-                        }
-                    }
-                }
-                if (!isReconn && t instanceof IOException) {
+                isReconn = true;
+                if (WEBSOCKET_EXCEPTION.contains(tClass)) {
                     errorType = WEBSOCKET_ERROR;
-                } else if (errorType == null) {
+                } else if (t instanceof IOException) {
+                    errorType = NETWORK_ERROR;
+                    forceToUseMaxRetryDelay = true;
+                } else {
                     errorType = UNKNOWN_ERROR;
                 }
             }
             Status.ErrorInfo errorInfo = Status.ErrorInfo.of(errorType, t.getMessage());
             if (isReconn) {
+                logger.warn("FFC JAVA SDK: streaming webSocket will reconnect because of {}", t.getMessage());
                 updator.updateStatus(Status.StateType.INTERRUPTED, errorInfo);
                 reconnect(forceToUseMaxRetryDelay);
             } else {
+                logger.error("FFC JAVA SDK: streaming webSocket Failure", t);
                 updator.updateStatus(Status.StateType.OFF, errorInfo);
                 // clean up thread and conn pool
                 clearExecutor();

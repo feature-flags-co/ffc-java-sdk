@@ -79,7 +79,7 @@ public interface FFCClient extends Closeable {
     boolean isEnabled(String featureFlagKey, FFCUser user);
 
     /**
-     * alias of boolVariation for a given user
+     * alias of boolVariation for a current user
      * <p>
      * note that this method should be called in the context that support to capture automatically the current user
      *
@@ -157,6 +157,29 @@ public interface FFCClient extends Closeable {
      * @return the variation for the current user, or {@code defaultValue} if the flag is disabled, current user doesn't exist or an error
      */
     long longVariation(String featureFlagKey, Long defaultValue);
+
+    /**
+     * Calculates the json value of a feature flag for a given user.
+     *
+     * @param featureFlagKey the unique key for the feature flag
+     * @param user           the end user requesting the flag
+     * @param clazz          json deserialization class
+     * @param defaultValue   the default value of the flag
+     * @param <T>            json object type
+     * @return the variation for the given user, or {@code defaultValue} if the flag is disabled, current user doesn't exist
+     */
+    <T> T jsonVariation(String featureFlagKey, FFCUser user, Class<T> clazz, T defaultValue);
+
+    /**
+     * Calculates the json value of a feature flag for the current user.
+     *
+     * @param featureFlagKey the unique key for the feature flag
+     * @param clazz          json deserialization class
+     * @param defaultValue   the default value of the flag
+     * @param <T>            json object type
+     * @return the variation for the current user, or {@code defaultValue} if the flag is disabled, current user doesn't exist
+     */
+    <T> T jsonVariation(String featureFlagKey, Class<T> clazz, T defaultValue);
 
     /**
      * Returns true if the specified feature flag currently exists.
@@ -267,7 +290,7 @@ public interface FFCClient extends Closeable {
     FlagState<Double> doubleVariationDetail(String featureFlagKey, FFCUser user, Double defaultValue);
 
     /**
-     * Calculates the double value of a feature flag for a given user, and returns an object that describes the
+     * Calculates the double value of a feature flag for a current user, and returns an object that describes the
      * way the value was determined.
      * <p>
      * note that this method should be called in the context that support to capture automatically the current user
@@ -293,7 +316,7 @@ public interface FFCClient extends Closeable {
     FlagState<Integer> intVariationDetail(String featureFlagKey, FFCUser user, Integer defaultValue);
 
     /**
-     * Calculates the int value of a feature flag for a given user, and returns an object that describes the
+     * Calculates the int value of a feature flag for a current user, and returns an object that describes the
      * way the value was determined.
      * <p>
      * Note that If the variation has a numeric value, but not a int value, it is rounded toward zero(DOWN mode)
@@ -315,13 +338,13 @@ public interface FFCClient extends Closeable {
      *
      * @param featureFlagKey the unique key for the feature flag
      * @param user           the end user requesting the flag
-     * @param defaultValue   the unique key for the feature flag
+     * @param defaultValue   the default value of the flag
      * @return an {@link FlagState} object
      */
     FlagState<Long> longVariationDetail(String featureFlagKey, FFCUser user, Long defaultValue);
 
     /**
-     * Calculates the long of a feature flag for a given user, and returns an object that describes the
+     * Calculates the long of a feature flag for the current user, and returns an object that describes the
      * way the value was determined.
      * <p>
      * Note that If the variation has a numeric value, but not a long value, it is rounded toward zero(DOWN mode)
@@ -329,10 +352,35 @@ public interface FFCClient extends Closeable {
      * note that this method should be called in the context that support to capture automatically the current user
      *
      * @param featureFlagKey the unique key for the feature flag
-     * @param defaultValue   the unique key for the feature flag
+     * @param defaultValue   the default value of the flag
      * @return an {@link FlagState} object
      */
     FlagState<Long> longVariationDetail(String featureFlagKey, Long defaultValue);
+
+    /**
+     * Calculates the json value of a feature flag for a given user, and returns an object that describes the
+     * way the value was determined.
+     *
+     * @param featureFlagKey the unique key for the feature flag
+     * @param user           the end user requesting the flag
+     * @param clazz          json deserialization class
+     * @param defaultValue   the default value of the flag
+     * @param <T>            json object type
+     * @return an {@link FlagState} object
+     */
+    <T> FlagState<T> jsonVariationDetail(String featureFlagKey, FFCUser user, Class<T> clazz, T defaultValue);
+
+    /**
+     * Calculates the json value of a feature flag for a current user, and returns an object that describes the
+     * way the value was determined.
+     *
+     * @param featureFlagKey the unique key for the feature flag
+     * @param clazz          json deserialization class
+     * @param defaultValue   the default value of the flag
+     * @param <T>            json object type
+     * @return an {@link FlagState} object
+     */
+    <T> FlagState<T> jsonVariationDetail(String featureFlagKey, Class<T> clazz, T defaultValue);
 
     /**
      * Flushes all pending events.
