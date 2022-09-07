@@ -151,4 +151,8 @@ public abstract class Utils {
         Loggers.UTILS.debug("gracefully shut down thread pool of {}", name);
     }
 
+    public static int intLEFromBytes(byte[] bytes) {
+        return bytes[3] << 24 | (bytes[2] & 255) << 16 | (bytes[1] & 255) << 8 | bytes[0] & 255;
+    }
+
 }

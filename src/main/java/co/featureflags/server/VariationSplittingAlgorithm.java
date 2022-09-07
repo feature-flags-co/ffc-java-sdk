@@ -26,7 +26,7 @@ final class VariationSplittingAlgorithm {
             MessageDigest md5 = MessageDigest.getInstance("MD5");
             md5.update(key.getBytes(StandardCharsets.US_ASCII));
             byte[] digest = md5.digest();
-            int magicNumber = Ints.fromByteArray(digest);
+            int magicNumber = Utils.intLEFromBytes(digest);
             return Math.abs((double) magicNumber / Integer.MIN_VALUE);
         } catch (Exception ex) {
             return 0D;
