@@ -141,7 +141,7 @@ abstract class Insights {
 
     private final static class FlushPayloadRunner implements Runnable {
 
-        private final static int MAX_EVENT_SIZE_PER_REQUEST = 100;
+        private final static int MAX_EVENT_SIZE_PER_REQUEST = 50;
 
         private final InsightTypes.InsightConfig config;
 
@@ -190,7 +190,7 @@ abstract class Insights {
         }
 
         public void stop() {
-            running.set(true);
+            running.set(false);
             thread.interrupt();
             Loggers.EVENTS.debug("flush payload worker is stopping...");
         }
@@ -308,7 +308,7 @@ abstract class Insights {
                 // busy payload worker - 1
                 synchronized (busyFlushPayloadThreadNum) {
                     busyFlushPayloadThreadNum.decrementAndGet();
-                    busyFlushPayloadThreadNum.notify();
+                    busyFlushPayloadThreadNum.notifyAll();
                 }
             }
         }
