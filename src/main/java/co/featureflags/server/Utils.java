@@ -26,7 +26,7 @@ public abstract class Utils {
 
     public static Iterable<Map.Entry<String, String>> defaultHeaders(String envSecret) {
         return ImmutableMap.of("envSecret", envSecret,
-                        "User-Agent", "ffc-java-server-sdk4",
+                        "User-Agent", "fb-java-server-sdk",
                         "Content-Type", "application/json")
                 .entrySet();
     }
